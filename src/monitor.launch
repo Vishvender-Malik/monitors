@@ -1,0 +1,3 @@
+<launch>
+  <node name="node_pkg_ros_monitor" pkg="pkg_ros_monitor" type="node_pkg_ros_monitor" output="screen"/>
+</launch>
