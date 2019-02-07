@@ -18,7 +18,8 @@ File : node_pkg_ros_monitor.cpp
 #include "Contour.h"
 #include "api_pkg_ros_monitor.h"
 #include <nav_msgs/Odometry.h>
-#include <mavros_msgs/State.h>
+//#include <mavros_msgs/State.h>
+#include <mavros_msgs/SetMode.h>
 
 //-------------------------------------------------------------------------------------------------------------------------------
 
@@ -35,7 +36,7 @@ std::string topic_local_position_data = "";
 
 // for geo fence monitor
 std::string topic_corrected_velocity = ""; 
-std::string topic_new_mavros_state = "";
+//std::string topic_new_mavros_state = "";
 std::string topic_current_mavros_state = "";
 
 const int array_velocity_guidance_size = 3, array_wind_velocity_size = 3, array_guidance_velocity_size = 3,
@@ -72,7 +73,8 @@ bool mode_guided;
 
 geometry_msgs::TwistStamped command_geometry_twist; // final command_geometry_twist message to be published
 nav_msgs::Odometry command_nav_pose; // final command_nav_pose message to be published
-mavros_msgs::State command_mavros_state; // final command_mavros_state to be published
+//mavros_msgs::State command_mavros_state; // final command_mavros_state to be published
+mavros_msgs::SetMode command_mavros_set_mode; // final command_mavros_set_mode to be published
 
 // publishers and subscribers for monitor_wind
 ros::Publisher pub_landing_target_info;
@@ -83,11 +85,12 @@ ros::Subscriber sub_receive_altitude;
 ros::Subscriber sub_get_windspeed;
 ros::Subscriber sub_vision_landing_target_info;
 
-// publishers and subscribers for monitor_wind
+// publishers, subscribers and services for monitor_geo_fence
 ros::Publisher pub_corrected_velocity;
-ros::Publisher pub_new_mavros_state;
+//ros::Publisher pub_new_mavros_state;
 ros::Subscriber sub_local_position_data;
 ros::Subscriber sub_current_mavros_state;
+ros::ServiceClient srv_mavros_state;
 
 //<----------------------------------------------------------------------------------------------------------->
 
@@ -116,7 +119,6 @@ void set_max_possible_pose_in_positive_y(int config_max_possible_pose_in_positiv
 void set_max_possible_pose_in_negative_y(int config_max_possible_pose_in_negative_y);
 void set_max_possible_pose_in_positive_z(int config_max_possible_pose_in_positive_z);
 void set_max_possible_pose_in_negative_z(int config_max_possible_pose_in_negative_z);
-void set_new_mavros_state(std::string new_mavros_state);
 void set_topic_local_position_data(std::string local_position_data);
 void set_topic_corrected_velocity(std::string corrected_velocity);
 void set_constant_beta(double config_constant_beta);
@@ -386,7 +388,6 @@ void reconfiguration_callback(pkg_ros_monitor::monitor_Config &config, uint32_t 
     set_critical_radius_from_fence_limit(config.set_critical_radius_from_fence_limit);
     set_radius_of_circle_of_influence_s(config.set_radius_of_circle_of_influence_s);
     set_constant_beta(config.set_constant_beta);
-    set_new_mavros_state(config.set_topic_new_mavros_state);
     set_topic_local_position_data(config.set_topic_local_position_data.c_str());
     set_topic_corrected_velocity(config.set_topic_corrected_velocity.c_str());
 
@@ -400,7 +401,6 @@ void reconfiguration_callback(pkg_ros_monitor::monitor_Config &config, uint32_t 
     "Critical radius from fence limit : %f\n"
     "Radius of circle of influence \"s\" : %f\n"
     "Value for constant beta (for potential field calculation) : %f\n"
-    "Topic to publish new mavros state parameters to : %s\n"
     "Topic to get local position data from : %s\n"
     "Topic to get desired velocity parameters from : %s\n"
     "Topic to publish corrected velocity to : %s \n\n",
@@ -409,7 +409,6 @@ void reconfiguration_callback(pkg_ros_monitor::monitor_Config &config, uint32_t 
     config.set_max_possible_pose_in_positive_z, config.set_max_possible_pose_in_negative_z,
     config.set_critical_radius_from_fence_limit, config.set_radius_of_circle_of_influence_s,
     config.set_constant_beta,
-    config.set_topic_new_mavros_state.c_str(),
     config.set_topic_local_position_data.c_str(),
     config.set_topic_desired_airspeed.c_str(),
     config.set_topic_corrected_velocity.c_str());
@@ -671,13 +670,15 @@ void monitor_geo_fence_start()
     // final publisher to application // topic should just be cmd_vel
     pub_corrected_velocity = nodeHandle.advertise<geometry_msgs::TwistStamped>(topic_corrected_velocity, 1000);
     // publisher to publish new mavros flight state
-    pub_new_mavros_state = nodeHandle.advertise<mavros_msgs::State>(topic_new_mavros_state, 1000); 
+    //pub_new_mavros_state = nodeHandle.advertise<mavros_msgs::State>(topic_new_mavros_state, 1000); 
     // subscriber to receive local position data from controller
     sub_local_position_data = nodeHandle.subscribe(topic_local_position_data, 1000, receive_local_position_data);
     // subscriber to receive velocity commands from the topic itself
     sub_guidance_velocity = nodeHandle.subscribe(topic_guidance_velocity, 1000, receive_guidance_velocity);
     // subscriber to receive current mavros state information
     //sub_current_mavros_state = nodeHandle.subscribe(topic_current_mavros_state, 1000, receive_current_mavros_state);
+    // service to set mode of the vehicle
+    srv_mavros_state = nodeHandle.serviceClient<mavros_msgs::SetMode>("SetMode");
 
     //run loop at (10) Hz (always in decimal and faster than what is published through guidance controller)
     ros::Rate loop_rate(10);
@@ -767,12 +768,6 @@ void set_topic_local_position_data(std::string local_position_data)
 void set_topic_corrected_velocity(std::string corrected_velocity)
 {
     topic_corrected_velocity = corrected_velocity;
-}
-
-// function to set new_mavros_state topic
-void set_new_mavros_state(std::string new_mavros_state)
-{
-    topic_new_mavros_state = new_mavros_state;
 }
 
 // function to receive local position data
@@ -942,8 +937,9 @@ void prediction_from_monitor_geo_fence()
     if(dist_bet_fence_and_vehicle_overall < critical_radius_from_fence_limit)
     {
         //array_monitor_geo_fence_triggered[2] = "Yes.";
-        //command_mavros_state.guided = true;
-        //command_mavros_state.mode = "GUIDED";
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";
+
         // keep hovering at that position, delta x and delta y in potential field equations
         command_geometry_twist.twist.linear.x = 0;
         command_geometry_twist.twist.linear.y = 0; 
@@ -952,8 +948,8 @@ void prediction_from_monitor_geo_fence()
     else if ((dist_bet_fence_and_vehicle_overall > critical_radius_from_fence_limit) && 
     (dist_bet_fence_and_vehicle_overall < (critical_radius_from_fence_limit + radius_of_circle_of_influence_s))) 
     {
-        //command_mavros_state.guided = true;
-        //command_mavros_state.mode = "GUIDED";
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";
 
         // for direction x
         if((dist_bet_fence_and_vehicle_x > critical_radius_from_fence_limit) && 
@@ -989,8 +985,8 @@ void prediction_from_monitor_geo_fence()
     }
     else if(dist_bet_fence_and_vehicle_overall > (critical_radius_from_fence_limit + radius_of_circle_of_influence_s))
     {
-        //command_mavros_state.guided = false;
-        //command_mavros_state.mode = "AUTO";
+        command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
+        command_mavros_set_mode.request.custom_mode = "AUTO";
 
         command_geometry_twist.twist.linear.x = array_velocity_guidance[0];
         command_geometry_twist.twist.linear.y = array_velocity_guidance[1];
@@ -1030,11 +1026,11 @@ void publish_final_command_geo_fence()
     // make prediction at set frequency
     prediction_from_monitor_geo_fence();
 
-    ROS_INFO("\n\n\"GUIDED\" mode : %d\n"
-    "Current mode : %s\n"
+    ROS_INFO("\n\nCurrent mode set request : %s\n"
+    "Requested mode actually set : %d\n"
     "Value of constant beta : %f\n",
-    command_mavros_state.guided,
-    command_mavros_state.mode.c_str(),
+    command_mavros_set_mode.request.custom_mode.c_str(),
+    command_mavros_set_mode.response.mode_sent,
     constant_beta);
     /*
     ROS_INFO("\n\nFence breach in direction x : %s \n"
@@ -1050,8 +1046,8 @@ void publish_final_command_geo_fence()
     command_geometry_twist.twist.linear.x, command_geometry_twist.twist.linear.y, command_geometry_twist.twist.linear.z);
     ROS_INFO("\n\n\n---------------------------------------------------------------------------------------------\n");
     
-    // finally, publish to the topics
-    pub_new_mavros_state.publish(command_mavros_state);
+    // finally, call the service and publish to the topic
+    srv_mavros_state.call(command_mavros_set_mode);
     pub_corrected_velocity.publish(command_geometry_twist);
     ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel_new\".");
     ROS_INFO("\n\n------------------------------------End of data block----------------------------------------\n\n");
