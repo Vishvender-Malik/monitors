@@ -601,33 +601,33 @@ void publish_final_command_wind(){
        
     ROS_INFO("\n\n------------------------------------Data received----------------------------------------\n\n");
     
-    ROS_INFO("\n\nDesired airspeed received via topic for parameter x : %f \n""Desired airspeed received via topic for parameter y : %f \n"
-    "Desired airspeed received via topic for parameter z : %f \n", array_velocity_guidance[0], array_velocity_guidance[1],
+    ROS_INFO("\n\nDesired airspeed received via topic in direction x : %f \n""Desired airspeed received via topic in direction y : %f \n"
+    "Desired airspeed received via topic in direction z : %f \n", array_velocity_guidance[0], array_velocity_guidance[1],
     array_velocity_guidance[2]);
 
-    ROS_INFO("\n\nWind speed received via topic for parameter x : %f \n""Wind speed received via topic for parameter y : %f \n"
-    "Wind speed received via topic for parameter z : %f \n", array_windspeed[0], array_windspeed[1],
+    ROS_INFO("\n\nWind speed received via topic in direction x : %f \n""Wind speed received via topic in direction y : %f \n"
+    "Wind speed received via topic in direction z : %f \n", array_windspeed[0], array_windspeed[1],
     array_windspeed[2]);
     
     ROS_INFO("\n\nAltitude Info received from vision controller : %f\n", altitude);
 
-    ROS_INFO("\n\nTarget distance received from vision controller for parameter x : %f \n"
-    "Target distance received from vision controller for parameter y : %f \n", target_center_x, target_center_y);
+    ROS_INFO("\n\nTarget distance received from vision controller in direction x : %f \n"
+    "Target distance received from vision controller in direction y : %f \n", target_center_x, target_center_y);
 
     ROS_INFO("\n\nFlag value for target being detected : %d \n"
     "Flag value for target being tracked : %d \n", flag_target_detected, flag_target_tracking);
 
-    ROS_INFO("\n\nGroundspeed received for comparison from guidance controller for parameter x : %f \n"
-    "Groundspeed received for comparison from guidance controller for parameter y : %f \n"
-    "Groundspeed received for comparison from guidance controller for parameter z : %f\n",
+    ROS_INFO("\n\nGroundspeed received for comparison from guidance controller in direction x : %f \n"
+    "Groundspeed received for comparison from guidance controller in direction y : %f \n"
+    "Groundspeed received for comparison from guidance controller in direction z : %f\n",
     array_groundspeed_guidance[0], array_groundspeed_guidance[1], array_groundspeed_guidance[2]);
 
     // make prediction at set frequency
     prediction_from_monitor_wind();
     
-    ROS_INFO("\n\nCorrected airspeed published by monitor for parameter x : %f \n"
-    "Corrected airspeed published by monitor for parameter y : %f \n"
-    "Corrected airspeed published by monitor for parameter z : %f\n\n",
+    ROS_INFO("\n\nCorrected airspeed published by monitor in direction x : %f \n"
+    "Corrected airspeed published by monitor in direction y : %f \n"
+    "Corrected airspeed published by monitor in direction z : %f\n\n",
     command_geometry_twist.twist.linear.x, command_geometry_twist.twist.linear.y, command_geometry_twist.twist.linear.z);
     ROS_INFO("\n\n\n---------------------------------------------------------------------------------------------\n");
 
@@ -797,13 +797,13 @@ void prediction_from_monitor_geo_fence()
     // get the sign for direction purposes
     //sign_local_position_y = copysign(1, array_local_position_pose_data[1]);
 
-    // since we're not predicting anything for parameters x and z,
+    // since we're not predicting anything in directions x and z,
     // pass the received velocity values as is
     //command_geometry_twist.twist.linear.x = array_velocity_guidance[0];
     //command_geometry_twist.twist.linear.z = array_velocity_guidance[1];
 
     // or if we were to :
-    // for parameter x :
+    // in direction x :
     /*
     if(array_local_position_pose_data[0] <= max_possible_pose_in_positive_x && array_local_position_pose_data[0] >= max_possible_pose_in_negative_x)
     {
@@ -830,7 +830,7 @@ void prediction_from_monitor_geo_fence()
         command_geometry_twist.twist.linear.z = 0;
     }
 
-    // for parameter y :
+    // in direction y :
     if(array_local_position_pose_data[1] <= max_possible_pose_in_positive_y && array_local_position_pose_data[1] >= max_possible_pose_in_negative_y)
     {
         array_monitor_geo_fence_triggered[1] = "No.";
@@ -856,7 +856,7 @@ void prediction_from_monitor_geo_fence()
         command_geometry_twist.twist.linear.z = 0;
     }
 
-    // for parameter z :
+    // in direction z :
     if(array_local_position_pose_data[2] <= max_possible_pose_in_positive_z && array_local_position_pose_data[2] >= max_possible_pose_in_negative_z)
     {
         array_monitor_geo_fence_triggered[2] = "No.";
@@ -926,12 +926,12 @@ void prediction_from_monitor_geo_fence()
    }
 
    dist_bet_fence_and_vehicle_x = fence_limit_to_consider_in_x - array_local_position_pose_data[0];
-   dist_bet_fence_and_vehicle_y = array_local_position_pose_data[1] - fence_limit_to_consider_in_y;
+   dist_bet_fence_and_vehicle_y = fence_limit_to_consider_in_y - array_local_position_pose_data[1];
    dist_bet_fence_and_vehicle_z = fence_limit_to_consider_in_z - array_local_position_pose_data[2]; // not used so far
 
    // calculations for potential field based velocities in two dimensions
     dist_bet_fence_and_vehicle_overall = sqrt((pow(dist_bet_fence_and_vehicle_x, 2.0)) + (pow(dist_bet_fence_and_vehicle_y, 2.0)));
-    angle_bet_fence_and_vehicle = atan2((- dist_bet_fence_and_vehicle_y), dist_bet_fence_and_vehicle_x); // in radians
+    angle_bet_fence_and_vehicle = atan2((dist_bet_fence_and_vehicle_y), dist_bet_fence_and_vehicle_x); // in radians
 
     // actions to be taken
     if(dist_bet_fence_and_vehicle_overall < critical_radius_from_fence_limit)
@@ -991,9 +991,7 @@ void prediction_from_monitor_geo_fence()
         command_geometry_twist.twist.linear.x = array_velocity_guidance[0];
         command_geometry_twist.twist.linear.y = array_velocity_guidance[1];
         command_geometry_twist.twist.linear.z = array_velocity_guidance[2];
-    }
-    srv_mavros_state.call(command_mavros_set_mode);
-    
+    }    
 } // end of function prediction_from_monitor_geo_fence()
 
 // function to publish final command_geometry_twist through the publisher via this monitor
@@ -1018,13 +1016,22 @@ void publish_final_command_geo_fence()
     max_possible_pose_in_positive_z, max_possible_pose_in_negative_z,
     critical_radius_from_fence_limit, radius_of_circle_of_influence_s);
     
-    ROS_INFO("\n\nLocal position received from 'Home' for parameter x : %f \n"
-    "Local position received from \"Home\" for parameter y : %f \n"
-    "Local position received from \"Home\" for parameter z : %f \n",
+    ROS_INFO("\n\nLocal position received from 'Home' in direction x : %f \n"
+    "Local position received from \"Home\" in direction y : %f \n"
+    "Local position received from \"Home\" in direction z : %f \n",
     array_local_position_pose_data[0], array_local_position_pose_data[1], array_local_position_pose_data[2]);
 
-    ROS_INFO("\n\nDesired airspeed received via topic for parameter x : %f \n""Desired airspeed received via topic for parameter y : %f \n"
-    "Desired airspeed received via topic for parameter z : %f \n", array_velocity_guidance[0], array_velocity_guidance[1],
+    ROS_INFO("\n\nDistance between fence limit and vehicle in direction x : %f\n"
+    "Distance between fence limit and vehicle in direction y : %f\n"
+    "Distance between fence limit and vehicle in direction z : %f\n",
+    dist_bet_fence_and_vehicle_x, dist_bet_fence_and_vehicle_y, dist_bet_fence_and_vehicle_z);
+
+    ROS_INFO("\n\nDistance between fence and vehicle overall : %f\n"
+    "Current angle between fence and vehicle (in radians) : %f",
+    dist_bet_fence_and_vehicle_overall, angle_bet_fence_and_vehicle);
+
+    ROS_INFO("\n\nDesired airspeed received via controller in direction x : %f \n""Desired airspeed received via controller in direction y : %f \n"
+    "Desired airspeed received via controller in direction z : %f \n", array_velocity_guidance[0], array_velocity_guidance[1],
     array_velocity_guidance[2]);
 
     ROS_INFO("\n\nCurrent mode set request : %s\n"
@@ -1041,14 +1048,14 @@ void publish_final_command_geo_fence()
     array_monitor_geo_fence_triggered[1].c_str(),
     array_monitor_geo_fence_triggered[2].c_str());
     */
-    ROS_INFO("\n\nCorrected airspeed published by monitor for parameter x : %f \n"
-    "Corrected airspeed published by monitor for parameter y : %f \n"
-    "Corrected airspeed published by monitor for parameter z : %f \n",
+    ROS_INFO("\n\nCorrected airspeed published by monitor in direction x : %f \n"
+    "Corrected airspeed published by monitor in direction y : %f \n"
+    "Corrected airspeed published by monitor in direction z : %f \n",
     command_geometry_twist.twist.linear.x, command_geometry_twist.twist.linear.y, command_geometry_twist.twist.linear.z);
     ROS_INFO("\n\n\n---------------------------------------------------------------------------------------------\n");
     
     // finally, call the service and publish to the topic
-    
+    srv_mavros_state.call(command_mavros_set_mode);
     pub_corrected_velocity.publish(command_geometry_twist);
     ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel\".");
     ROS_INFO("\n\n------------------------------------End of data block----------------------------------------\n\n");
