@@ -992,6 +992,7 @@ void prediction_from_monitor_geo_fence()
         command_geometry_twist.twist.linear.y = array_velocity_guidance[1];
         command_geometry_twist.twist.linear.z = array_velocity_guidance[2];
     }
+    srv_mavros_state.call(command_mavros_set_mode);
     
 } // end of function prediction_from_monitor_geo_fence()
 
@@ -1000,13 +1001,16 @@ void publish_final_command_geo_fence()
 {
     ROS_INFO("\n\n------------------------------------Data received----------------------------------------\n\n");
 
+    // make prediction at set frequency
+    prediction_from_monitor_geo_fence();
+    
     ROS_INFO("\n\nGeo fence limits set :\n\n"
     "Fence limit set in direction positive x : %f \n"
     "Fence limit set in direction negative x : %f \n"
     "Fence limit set in direction positive y : %f \n"
     "Fence limit set in direction negative y : %f \n"
     "Fence limit set in direction positive z : %f \n"
-    "Fence limit set in direction negative z : %f \n"
+    "Fence limit set in direction negative z : %f \n\n"
     "Critical radius from fence limit : %f\n"
     "Radius of circle of influence \"s\" : %f\n",
     max_possible_pose_in_positive_x, max_possible_pose_in_negative_x,
@@ -1022,9 +1026,6 @@ void publish_final_command_geo_fence()
     ROS_INFO("\n\nDesired airspeed received via topic for parameter x : %f \n""Desired airspeed received via topic for parameter y : %f \n"
     "Desired airspeed received via topic for parameter z : %f \n", array_velocity_guidance[0], array_velocity_guidance[1],
     array_velocity_guidance[2]);
-
-    // make prediction at set frequency
-    prediction_from_monitor_geo_fence();
 
     ROS_INFO("\n\nCurrent mode set request : %s\n"
     "Requested mode actually set : %d\n"
@@ -1047,9 +1048,9 @@ void publish_final_command_geo_fence()
     ROS_INFO("\n\n\n---------------------------------------------------------------------------------------------\n");
     
     // finally, call the service and publish to the topic
-    srv_mavros_state.call(command_mavros_set_mode);
+    
     pub_corrected_velocity.publish(command_geometry_twist);
-    ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel_new\".");
+    ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel\".");
     ROS_INFO("\n\n------------------------------------End of data block----------------------------------------\n\n");
 } // end of function publish_final_command_geo_fence()
 
