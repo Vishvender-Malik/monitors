@@ -1172,12 +1172,12 @@ void publish_final_command_geo_fence()
     "Local position received from \"Home\" in direction y : %f \n"
     "Local position received from \"Home\" in direction z : %f \n",
     array_local_position_pose_data[0], array_local_position_pose_data[1], array_local_position_pose_data[2]);
-    /*
+    
     ROS_INFO("\n\nDistance between fence limit and vehicle in direction x : %f\n"
     "Distance between fence limit and vehicle in direction y : %f\n"
     "Distance between fence limit and vehicle in direction z : %f\n",
     dist_bet_fence_and_vehicle_x, dist_bet_fence_and_vehicle_y, dist_bet_fence_and_vehicle_z);
-
+    /*
     ROS_INFO("\n\nDistance between fence and vehicle overall : %f\n"
     "Current angle between fence and vehicle (in radians) : %f\n"
     "Gradient x : %f\n"
@@ -1191,14 +1191,14 @@ void publish_final_command_geo_fence()
     ROS_INFO("\n\nDesired airspeed received via controller in direction x : %f \n""Desired airspeed received via controller in direction y : %f \n"
     "Desired airspeed received via controller in direction z : %f \n", array_velocity_guidance[0], array_velocity_guidance[1],
     array_velocity_guidance[2]);
-    /*
+    
     ROS_INFO("\n\nCurrent mode set request : %s\n"
     "Requested mode actually set : %d\n"
     "Value of constant beta : %f\n",
     command_mavros_set_mode.request.custom_mode.c_str(),
     command_mavros_set_mode.response.mode_sent,
     constant_beta);
-    */
+    
     ROS_INFO("\n\nFence breach in direction x : %s \n"
     "Fence breach in direction y : %s \n"
     "Fence breach in direction z : %s \n",
