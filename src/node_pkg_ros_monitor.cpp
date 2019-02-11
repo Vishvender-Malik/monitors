@@ -56,7 +56,7 @@ fence_limit_to_consider_in_x, fence_limit_to_consider_in_y, fence_limit_to_consi
 dist_bet_fence_and_vehicle_x = 0.0, dist_bet_fence_and_vehicle_y = 0.0, dist_bet_fence_and_vehicle_z = 0.0,
 critical_radius_from_fence_limit, radius_of_circle_of_influence_s, dist_bet_fence_and_vehicle_overall = 0.0,
 angle_bet_fence_and_vehicle = 0.0, gradient_x = 0.0, gradient_y = 0.0, constant_beta = 0.0, resulting_velocity_of_vehicle = 0.0,
-resulting_angle_theta = 0.0, critical_radius_start_from_home = 0.0;
+resulting_angle_theta = 0.0, critical_radius_start_from_home = 0.0,constant_beta_x = 0.0,constant_beta_y = 0.0;
 
 int flag_target_detected, flag_target_tracking, first_choice = 0, second_choice = 0,
 sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z;
@@ -971,19 +971,23 @@ void prediction_from_monitor_geo_fence()
    if(sign_vehicle_pose_x == 1)
    {
        fence_limit_to_consider_in_x = max_possible_pose_in_positive_x;
+       constant_beta_x = constant_beta*-1;
    }
    else
    {
        fence_limit_to_consider_in_x = max_possible_pose_in_negative_x;
+       constant_beta_x = constant_beta*1;
    }
 
    if(sign_vehicle_pose_y == 1)
    {
        fence_limit_to_consider_in_y = max_possible_pose_in_positive_y;
+       constant_beta_y = constant_beta*-1;
    }
    else
    {
        fence_limit_to_consider_in_y = max_possible_pose_in_negative_y;
+       constant_beta_y = constant_beta*1;
    }
 
    if(sign_vehicle_pose_z == 1)
@@ -1001,7 +1005,7 @@ void prediction_from_monitor_geo_fence()
 
    // calculations for potential field based velocities in two dimensions
     //dist_bet_fence_and_vehicle_overall = sqrt((pow(dist_bet_fence_and_vehicle_x, 2.0)) + (pow(dist_bet_fence_and_vehicle_y, 2.0))); //wrong
-    angle_bet_fence_and_vehicle = atan2((dist_bet_fence_and_vehicle_y), dist_bet_fence_and_vehicle_x); // in radians
+
 
     // actions to be taken
     // in direction x : 
@@ -1020,8 +1024,10 @@ void prediction_from_monitor_geo_fence()
         command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
         command_mavros_set_mode.request.custom_mode = "GUIDED";        
         
-        gradient_x = - constant_beta;
+        gradient_x = constant_beta_x;
         gradient_y = 0;
+
+        angle_bet_fence_and_vehicle = atan2(gradient_y, gradient_x); // in radians
 
         resulting_velocity_of_vehicle = sqrt(pow(gradient_x, 2.0) + pow(gradient_y, 2.0));
         command_geometry_twist.twist.linear.x = resulting_velocity_of_vehicle * cos(angle_bet_fence_and_vehicle);
@@ -1052,7 +1058,9 @@ void prediction_from_monitor_geo_fence()
         command_mavros_set_mode.request.custom_mode = "GUIDED";        
         
         gradient_x = 0;
-        gradient_y = - constant_beta;
+        gradient_y = constant_beta_y;
+
+        angle_bet_fence_and_vehicle = atan2(gradient_y, gradient_x); // in radians
 
         resulting_velocity_of_vehicle = sqrt(pow(gradient_x, 2.0) + pow(gradient_y, 2.0));
         command_geometry_twist.twist.linear.y = resulting_velocity_of_vehicle * sin(angle_bet_fence_and_vehicle);
@@ -1216,6 +1224,7 @@ void publish_final_command_geo_fence()
     srv_mavros_state.call(command_mavros_set_mode);
     pub_corrected_velocity.publish(command_geometry_twist);
     ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel\".");
+
     ROS_INFO("\n\n------------------------------------End of data block----------------------------------------\n\n");
 } // end of function publish_final_command_geo_fence()
 

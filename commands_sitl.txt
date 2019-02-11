@@ -1,0 +1,7 @@
+
+1. sim_vehicle.py --console --map --aircraft test -L Aurora
+2. wp load ../Tools/autotest/ArduPlane-Missions/waypoint3.txt
+3. roslaunch mavros apm2.launch fcu_url:=udp://localhost:14550@
+4. arm throttle, mode GUIDED, takeoff 10
+
+git reset --hard origin/master
