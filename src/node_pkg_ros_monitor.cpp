@@ -813,7 +813,7 @@ void prediction_from_monitor_geo_fence()
     //command_geometry_twist.twist.linear.z = array_velocity_guidance[1];
 
     // or if we were to :
-
+    /*
     // predict which fence limit to consider for calculation (+ve or -ve)
    // get signs of vehicle position direction
    sign_vehicle_pose_x = copysign(1, array_local_position_pose_data[0]);
@@ -951,7 +951,7 @@ void prediction_from_monitor_geo_fence()
             command_geometry_twist.twist.linear.z = 0;
         } // end of inner if - else
     } // end of outer if - else   
-    
+    */
     /*
     APPROACH 2
     Vehicle is by default in "AUTO" mode when in motion.
@@ -961,7 +961,7 @@ void prediction_from_monitor_geo_fence()
     mode back to "AUTO" so that mission can be resumed from that position.
     Use Potential Fields concept to calculate new velocities.
     */
-   /*
+   
    // predict which fence limit to consider for calculation (+ve or -ve)
    // get signs of vehicle position direction
    sign_vehicle_pose_x = copysign(1, array_local_position_pose_data[0]);
@@ -1000,10 +1000,78 @@ void prediction_from_monitor_geo_fence()
    dist_bet_fence_and_vehicle_z = fence_limit_to_consider_in_z - array_local_position_pose_data[2]; // not used so far
 
    // calculations for potential field based velocities in two dimensions
-    dist_bet_fence_and_vehicle_overall = sqrt((pow(dist_bet_fence_and_vehicle_x, 2.0)) + (pow(dist_bet_fence_and_vehicle_y, 2.0)));
+    //dist_bet_fence_and_vehicle_overall = sqrt((pow(dist_bet_fence_and_vehicle_x, 2.0)) + (pow(dist_bet_fence_and_vehicle_y, 2.0))); //wrong
     angle_bet_fence_and_vehicle = atan2((dist_bet_fence_and_vehicle_y), dist_bet_fence_and_vehicle_x); // in radians
 
     // actions to be taken
+    // in direction x : 
+    if(dist_bet_fence_and_vehicle_x < critical_radius_from_fence_limit)
+    {
+        //array_monitor_geo_fence_triggered[2] = "Yes.";
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";
+
+        // keep hovering at that position, delta x and delta y in potential field equations
+        command_geometry_twist.twist.linear.x = 0;
+        command_geometry_twist.twist.linear.y = 0; 
+        command_geometry_twist.twist.linear.z = 0;
+    }
+    else if ((dist_bet_fence_and_vehicle_x > critical_radius_from_fence_limit) && 
+    (dist_bet_fence_and_vehicle_x < (critical_radius_from_fence_limit + radius_of_circle_of_influence_s))) 
+    {
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";        
+        
+        gradient_x = - constant_beta;
+        gradient_y = 0;
+
+        resulting_velocity_of_vehicle = sqrt(pow(gradient_x, 2.0) + pow(gradient_y, 2.0));
+        command_geometry_twist.twist.linear.x = resulting_velocity_of_vehicle * cos(angle_bet_fence_and_vehicle);
+    }        
+    else if(dist_bet_fence_and_vehicle_x > (critical_radius_from_fence_limit + radius_of_circle_of_influence_s))
+    {
+        command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
+        command_mavros_set_mode.request.custom_mode = "AUTO";
+
+        command_geometry_twist.twist.linear.x = array_velocity_guidance[0];
+    }  
+
+    // in direction y :
+    if(dist_bet_fence_and_vehicle_y < critical_radius_from_fence_limit)
+    {
+        //array_monitor_geo_fence_triggered[2] = "Yes.";
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";
+
+        // keep hovering at that position, delta x and delta y in potential field equations
+        command_geometry_twist.twist.linear.x = 0;
+        command_geometry_twist.twist.linear.y = 0; 
+        command_geometry_twist.twist.linear.z = 0;
+    }
+    else if ((dist_bet_fence_and_vehicle_y > critical_radius_from_fence_limit) && 
+    (dist_bet_fence_and_vehicle_y < (critical_radius_from_fence_limit + radius_of_circle_of_influence_s))) 
+    {
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";        
+        
+        gradient_x = 0;
+        gradient_y = - constant_beta;
+
+        resulting_velocity_of_vehicle = sqrt(pow(gradient_x, 2.0) + pow(gradient_y, 2.0));
+        command_geometry_twist.twist.linear.y = resulting_velocity_of_vehicle * sin(angle_bet_fence_and_vehicle);
+    }        
+    else if(dist_bet_fence_and_vehicle_y > (critical_radius_from_fence_limit + radius_of_circle_of_influence_s))
+    {
+        command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
+        command_mavros_set_mode.request.custom_mode = "AUTO";
+
+        command_geometry_twist.twist.linear.y = array_velocity_guidance[1];
+    }  
+    
+    // for direction z
+    command_geometry_twist.twist.linear.z = array_velocity_guidance[2];
+    
+    /*
     if(dist_bet_fence_and_vehicle_overall < critical_radius_from_fence_limit)
     {
         //array_monitor_geo_fence_triggered[2] = "Yes.";
@@ -1020,7 +1088,7 @@ void prediction_from_monitor_geo_fence()
     {
         command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
         command_mavros_set_mode.request.custom_mode = "GUIDED";
-        
+        /*
         gradient_x = - constant_beta * (radius_of_circle_of_influence_s + critical_radius_from_fence_limit - dist_bet_fence_and_vehicle_overall)
                         * cos(angle_bet_fence_and_vehicle);
         gradient_y = - constant_beta * (radius_of_circle_of_influence_s + critical_radius_from_fence_limit - dist_bet_fence_and_vehicle_overall)
@@ -1031,40 +1099,42 @@ void prediction_from_monitor_geo_fence()
         command_geometry_twist.twist.linear.x = resulting_velocity_of_vehicle * cos(resulting_angle_theta);
         command_geometry_twist.twist.linear.y = resulting_velocity_of_vehicle * sin(resulting_angle_theta);
         
-        /*
+        
         // for direction x
         if((dist_bet_fence_and_vehicle_x > critical_radius_from_fence_limit) && 
         (dist_bet_fence_and_vehicle_x < (critical_radius_from_fence_limit + radius_of_circle_of_influence_s)))
         {
-            gradient_x = - constant_beta * (radius_of_circle_of_influence_s + critical_radius_from_fence_limit - dist_bet_fence_and_vehicle_overall)
-                        * cos(angle_bet_fence_and_vehicle);
+            //gradient_x = - constant_beta * (radius_of_circle_of_influence_s + critical_radius_from_fence_limit - dist_bet_fence_and_vehicle_overall)
+            //            * cos(angle_bet_fence_and_vehicle);
+            gradient_x = - constant_beta;
             gradient_y = 0;
 
             resulting_velocity_of_vehicle = sqrt(pow(gradient_x, 2.0) + pow(gradient_y, 2.0));
-            command_geometry_twist.twist.linear.x = resulting_velocity_of_vehicle;
+            command_geometry_twist.twist.linear.x = resulting_velocity_of_vehicle * cos(angle_bet_fence_and_vehicle);
         }  
         // for direction y
         if((dist_bet_fence_and_vehicle_y > critical_radius_from_fence_limit) && 
         (dist_bet_fence_and_vehicle_y < (critical_radius_from_fence_limit + radius_of_circle_of_influence_s)))
         {
             gradient_x = 0;
-            gradient_y = - constant_beta * (radius_of_circle_of_influence_s + critical_radius_from_fence_limit - dist_bet_fence_and_vehicle_overall)
-                        * cos(angle_bet_fence_and_vehicle);
+            gradient_y = - constant_beta;
+            //gradient_y = - constant_beta * (radius_of_circle_of_influence_s + critical_radius_from_fence_limit - dist_bet_fence_and_vehicle_overall)
+            //            * cos(angle_bet_fence_and_vehicle);
  
             resulting_velocity_of_vehicle = sqrt(pow(gradient_x, 2.0) + pow(gradient_y, 2.0));
-            command_geometry_twist.twist.linear.x = resulting_velocity_of_vehicle;
+            command_geometry_twist.twist.linear.y = resulting_velocity_of_vehicle * sin(angle_bet_fence_and_vehicle);
         }  
-        */
+        
         // for direction z
-        //command_geometry_twist.twist.linear.z = array_velocity_guidance[2];
+        command_geometry_twist.twist.linear.z = array_velocity_guidance[2];
         /*
         resulting_velocity_of_vehicle = sqrt(pow(gradient_x, 2.0) + pow(gradient_y, 2.0));
 
         // split resulting velocity into parameters x and y
         command_geometry_twist.twist.linear.x = resulting_velocity_of_vehicle * cos(angle_bet_fence_and_vehicle);
         command_geometry_twist.twist.linear.y = resulting_velocity_of_vehicle * sin(angle_bet_fence_and_vehicle);
-        */
-   /* }
+        
+    }
     else if(dist_bet_fence_and_vehicle_overall > (critical_radius_from_fence_limit + radius_of_circle_of_influence_s))
     {
         command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
