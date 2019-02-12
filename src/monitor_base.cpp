@@ -25,3 +25,7 @@ monitor_base::monitor_base()
     ROS_INFO("end of monitor_base constructor reached\n");
 }
 
+monitor_base::~monitor_base()
+{
+    ROS_INFO("monitor_base destructor called\n");
+}

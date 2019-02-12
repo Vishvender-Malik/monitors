@@ -32,7 +32,7 @@ max_possible_vel_in_negative_y, max_possible_vel_in_positive_z, max_possible_vel
 sign_new_airspeed_vel_x, sign_new_airspeed_vel_y,
 sign_new_airspeed_vel_z, sign_local_position_y, target_center_x, target_center_y;
 
-pkg_ros_monitor::monitor_Config &config; 
+pkg_ros_monitor::monitor_Config config; 
 uint32_t level;
 
 geometry_msgs::TwistStamped command_geometry_twist; // final command_geometry_twist message to be published
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "node_monitor_wind");
     
     // create monitor object
-    monitor_wind monitor_wind = monitor_wind::monitor_wind();
+    monitor_wind monitor_wind;
     // implement class functions
     monitor_wind.set_monitor_topics(config, level);
     monitor_wind.initialize_pub_and_sub();

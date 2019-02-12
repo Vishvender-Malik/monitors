@@ -102,7 +102,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/pkg_ros_monitor_node.cpp)
 add_executable(node_pkg_ros_monitor src/node_pkg_ros_monitor.cpp)#file with a main function
-#add_executable(node_monitor_wind src/node_monitor_wind.cpp)#file with a main function
+add_executable(node_monitor_wind src/node_monitor_wind.cpp)#file with a main function
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -123,6 +123,10 @@ add_executable(node_pkg_ros_monitor src/node_pkg_ros_monitor.cpp)#file with a ma
 #-----------------This is how you include your libraries and include files in the code----
 
  target_link_libraries(node_pkg_ros_monitor
+   ${catkin_LIBRARIES}
+ )
+
+ target_link_libraries(node_monitor_wind
    ${catkin_LIBRARIES}
  )
 

@@ -13,16 +13,17 @@ File : monitor_base.h
 class monitor_base
 {
     public:
-    pkg_ros_monitor::monitor_Config &config;
+    pkg_ros_monitor::monitor_Config config;
     // constructor will initialize parameter server
-    monitor_base(); 
+    monitor_base(); // can't initialize so can't declare here
+    //~monitor_base();
     // callback function to configuration file to load parameters
-    virtual void set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level) = 0;
+    virtual void set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level){};
     // initialize publishers and subscribers
-    virtual void initialize_pub_and_sub() = 0; 
+    virtual void initialize_pub_and_sub(){}; 
     // start the monitor (first get monitor instance),
     // will contain monitor logic or a call to logic function
-    virtual void monitor_start() = 0; // "= 0" makes it a pure virtual function, and the class abstract
+    virtual void monitor_start(){}; // "= 0" makes it a pure virtual function, and the class abstract
         
 }; // end of class monitor_base
 
