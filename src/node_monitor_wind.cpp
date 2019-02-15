@@ -77,21 +77,42 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "node_monitor_wind");
     
     // create monitor object
-    monitor_wind monitor_wind;
+    monitor_wind obj_monitor_wind;
     // implement class functions
-    monitor_wind.set_monitor_topics(config, level);
-    monitor_wind.initialize_pub_and_sub();
-    monitor_wind.monitor_start();
+    obj_monitor_wind.init_parameter_server();
+    //obj_monitor_wind.set_monitor_topics(config, level); // main issue is here, not using same config as before
+    obj_monitor_wind.initialize_pub_and_sub();
+    obj_monitor_wind.monitor_start();
     
-    ROS_INFO("Spinning node");
-    ros::spin();
+    return 0;
 
 } // end of initialization
 
 //<------------------------------------------Function definitions---------------------------------------------------------------->
 
-monitor_wind::monitor_wind(){
-    ROS_INFO("\n\nmonitor_wind object initialized\n");
+monitor_wind::monitor_wind() : monitor_base(){
+    ROS_INFO("monitor_wind object initialized\n");
+}
+
+void monitor_wind::init_parameter_server(){
+    ROS_INFO("init_parameter_server function called.\n");
+    // define our parameter server, and pass it our configuration file information
+    // as long as the server lives (in this case until the end of our node, the monitor node listens to reconfigure requests
+    //dynamic_reconfigure::Server<pkg_ros_monitor::monitor_Config> parameter_server;
+
+    // define a variable to represent our callback object and provide it info about our callback function
+    //dynamic_reconfigure::Server<pkg_ros_monitor::monitor_Config>::CallbackType callback_variable;
+    //this -> set_monitor_topics(config, level);
+    callback_variable = boost::bind(&monitor_base::set_monitor_topics, this, _1, _2);
+
+    // pass our callback object to parameter server
+    // now when the server gets a reconfiguration request it will call our callback function
+    // call the callback function at least just one time before initilizing subscribers
+    parameter_server.setCallback(callback_variable); 
+    //ROS_INFO("Spinning parameter server.\n");
+    //ros::spinOnce();
+    ROS_INFO("init_parameter_server function ended.\n");
+    //this -> initialize_pub_and_sub();
 }
 
 void monitor_wind::set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level){
