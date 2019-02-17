@@ -13,6 +13,7 @@ File : monitor_base.h
 class monitor_base
 {
     public:
+    
     static pkg_ros_monitor::monitor_Config &config;
     uint32_t level;
     // define our parameter server, and pass it our configuration file information
@@ -22,15 +23,17 @@ class monitor_base
     // define a variable to represent our callback object and provide it info about our callback function
     dynamic_reconfigure::Server<pkg_ros_monitor::monitor_Config>::CallbackType callback_variable;
     
-    // constructor will initialize parameter server
+    // constructor + destructor
     monitor_base();
     virtual ~monitor_base();
+
+    // initialize parameter server
+    void init_parameter_server();
     // callback function to configuration file to load parameters
-    virtual void init_parameter_server() = 0;
     virtual void set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level) = 0;
     // initialize publishers and subscribers
     virtual void initialize_pub_and_sub() = 0; 
-    // start the monitor (first get monitor instance),
+    // start the monitor,
     // will contain monitor logic or a call to logic function
     virtual void monitor_start() = 0; // "= 0" makes it a pure virtual function, and the class abstract
         

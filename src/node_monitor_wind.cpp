@@ -50,7 +50,6 @@ ros::Subscriber sub_vision_landing_target_info;
 
 //<------------------------------------------Local function declarations--------------------------------------------------------->
 
-void reconfiguration_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level);
 void set_topic_guidance_velocity(std::string guidance_velocity);
 void set_topic_desired_airspeed(std::string desired_airspeed);
 void set_topic_receive_altitude(std::string receive_altitude);
@@ -71,7 +70,7 @@ void publish_final_command_wind();
 
 int main(int argc, char **argv)
 {
-    ROS_INFO("\n\n----------------Welcome-----------------\n\n");
+    ROS_INFO("\n\n---------------------------------Welcome--------------------------------------\n\n");
 
     // initialize ros node with a node name
     ros::init(argc, argv, "node_monitor_wind");
@@ -91,9 +90,9 @@ int main(int argc, char **argv)
 //<------------------------------------------Function definitions---------------------------------------------------------------->
 
 monitor_wind::monitor_wind() : monitor_base(){
-    ROS_INFO("monitor_wind object initialized\n");
+    ROS_INFO("monitor_wind constructor called, object initialized\n");
 }
-
+/*
 void monitor_wind::init_parameter_server(){
     ROS_INFO("init_parameter_server function called.\n");
     // define our parameter server, and pass it our configuration file information
@@ -114,7 +113,7 @@ void monitor_wind::init_parameter_server(){
     ROS_INFO("init_parameter_server function ended.\n");
     //this -> initialize_pub_and_sub();
 }
-
+*/
 void monitor_wind::set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level){
     
     ROS_INFO("set_monitor_topics function reached\n");
@@ -133,7 +132,7 @@ void monitor_wind::set_monitor_topics(pkg_ros_monitor::monitor_Config &config, u
     "Topic to get altitude information from : %s\n"
     "Topic to get wind information from : %s\n"
     "Topic to get additional flags information from : %s\n"
-    "Topic to publish final corrected airspeed to : %s\n\n", 
+    "Topic to publish final corrected airspeed to : %s\n", 
     config.set_topic_guidance_velocity.c_str(), config.set_topic_desired_airspeed.c_str(),
     config.set_topic_receive_altitude.c_str(), config.set_topic_wind_estimation.c_str(),
     config.set_topic_blobDataFlags.c_str(), config.set_topic_corrected_airspeed.c_str());

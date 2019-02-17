@@ -12,19 +12,16 @@ File : monitor_geo_fence.h
 
 class monitor_geo_fence : public monitor_base
 {
-    private:
-        monitor_geo_fence() {} // private constructor
-        
-        monitor_geo_fence(monitor_geo_fence const&); // don't implement
-        void operator = (monitor_geo_fence const&); // don't implement
-
     public:
         //monitor_geo_fence(monitor_geo_fence const&) = delete; // for use with C++11
         //void operator=(monitor_geo_fence const&)  = delete; // for use with C++11
-        static monitor_geo_fence& getInstance(); // get single instance of this class
-        //void set_monitor_topics(pkg_ros_monitor::monitor_Config &config); // set custom topics
-        //void initialize_pub_and_sub(); // initialize publishers and subscribers
-        //void monitor_start();
+        monitor_geo_fence();
+        using monitor_base::set_monitor_topics;
+        virtual void set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level); // set custom topics
+        using monitor_base::initialize_pub_and_sub;
+        virtual void initialize_pub_and_sub(); // initialize publishers and subscribers
+        using monitor_base::monitor_start;
+        virtual void monitor_start();
 }; // end of class monitor_geo_fence
 
 #endif
