@@ -18,5 +18,7 @@ File : headers.h
 #include "Contour.h"
 //#include "api_pkg_ros_monitor.h"
 #include <nav_msgs/Odometry.h>
-//#include <mavros_msgs/State.h>
+#include <mavros_msgs/WaypointList.h>
 #include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/HomePosition.h>
+#include <mavros_msgs/WaypointSetCurrent.h>
