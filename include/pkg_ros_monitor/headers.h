@@ -22,3 +22,4 @@ File : headers.h
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/HomePosition.h>
 #include <mavros_msgs/WaypointSetCurrent.h>
+#include <sensor_msgs/NavSatFix.h>
