@@ -25,7 +25,7 @@ struct waypoint{
 };
 
 const int array_velocity_guidance_size = 3, array_local_position_pose_data_size = 3, monitor_geo_fence_triggered_size = 3,
-array_waypoint_list_size = 100, radius_of_earth = 6371;
+array_waypoint_list_size = 100, radius_of_earth = 6371, array_global_position_uav_size = 3;
 
 std::string array_monitor_geo_fence_triggered[monitor_geo_fence_triggered_size] = "No."; // for geo fence monitor
 
@@ -39,8 +39,8 @@ angle_bet_fence_and_vehicle = 0.0, gradient_x = 0.0, gradient_y = 0.0, constant_
 resulting_angle_theta = 0.0, critical_radius_start_from_home = 0.0, constant_beta_x = 0.0,constant_beta_y = 0.0,
 x_lat_home, y_long_home, x_lat_mission_wp, y_long_mission_wp, diff_in_lat, diff_in_long,
 some_parameter_a, some_parameter_c, some_parameter_d, some_parameter_y, some_parameter_x, some_parameter_bearing,
-waypoint_current_lat, waypoint_current_long, location_home_lat_x, location_home_long_y, location_home_alt_z, wp_mission_x = 0.0, 
-wp_mission_y = 0.0;
+waypoint_current_lat, waypoint_current_long, location_home_lat_x, location_home_long_y, location_home_alt_z, wp_x = 0.0, 
+wp_y = 0.0, array_global_position_uav[array_global_position_uav_size] = {0.0};
 
 int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current;
 bool home_init = true, first_conversion = true;
@@ -88,7 +88,7 @@ void get_local_position_data(const nav_msgs::Odometry::ConstPtr& data);
 void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list);
 void get_home_lat_and_long(const mavros_msgs::HomePosition::ConstPtr& data);
 void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, 
-double long_y_mission_wp, double wp_mission_x, double wp_mission_y);
+double long_y_mission_wp);
 void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data);
 void prediction_from_monitor_geo_fence();
 
@@ -189,7 +189,7 @@ void monitor_geo_fence::initialize_pub_and_sub(){
     // publisher to publish new mavros flight state
     //pub_new_mavros_state = nodeHandle.advertise<mavros_msgs::State>(topic_new_mavros_state, 1000); 
     // subscriber to receive local position data from controller
-    sub_local_position_data = nodeHandle.subscribe(topic_local_position_data, 1000, get_local_position_data);
+    //sub_local_position_data = nodeHandle.subscribe(topic_local_position_data, 1000, get_local_position_data);
     // subscriber to receive velocity commands from the topic itself
     sub_guidance_velocity = nodeHandle.subscribe(topic_guidance_velocity, 1000, get_guidance_controller_velocity);
     // subscriber to get mission waypoint list
@@ -197,9 +197,9 @@ void monitor_geo_fence::initialize_pub_and_sub(){
     // subscriber to get global UAV position and use it as home location
     sub_global_position_uav = nodeHandle.subscribe(topic_global_position_uav, 1000, get_global_position_uav);
     // service to set mode of the vehicle
-    srv_mavros_state = nodeHandle.serviceClient<mavros_msgs::SetMode>("SetMode");
+    srv_mavros_state = nodeHandle.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
     // service to set updated current waypoint
-    srv_set_current_waypoint = nodeHandle.serviceClient<mavros_msgs::WaypointSetCurrent>("WaypointSetCurrent");
+    srv_set_current_waypoint = nodeHandle.serviceClient<mavros_msgs::WaypointSetCurrent>("/mavros/mission/set_current");
 
     ROS_INFO("end of initialize pub and sub function reached\n");
 }
@@ -213,7 +213,7 @@ void monitor_geo_fence::monitor_start(){
     //monitor_wind::initialize_pub_and_sub();
 
     //run loop at (10) Hz (always in decimal and faster than what is published through guidance controller)
-    ros::Rate loop_rate(0.50);
+    ros::Rate loop_rate(1.00);
     
     // Use current time as seed for random generator 
     srand(time(0)); 
@@ -332,7 +332,7 @@ void get_guidance_controller_velocity(const geometry_msgs::TwistStamped::ConstPt
     array_velocity_guidance[2] = data -> twist.linear.z;
     ROS_INFO("Data received from topic \"/mavros/local_position/velocity\".");
 }
-
+/*
 // function to receive local position data
 void get_local_position_data(const nav_msgs::Odometry::ConstPtr &data)
 {
@@ -341,8 +341,8 @@ void get_local_position_data(const nav_msgs::Odometry::ConstPtr &data)
     array_local_position_pose_data[2] = data -> pose.pose.position.z;
     ROS_INFO("Data received from topic \"mavros/global_position/local\".");
 }
-
-// function to receive global uav position, and use it to set home location in lat and long
+*/
+// function to receive global uav position, and also use it to set home location in lat and long
 void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data)
 {
     if(home_init){
@@ -351,11 +351,31 @@ void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data)
         location_home_alt_z = data -> altitude;
         home_init = false;
     }
-    ROS_INFO("Data received from topic \"mavros/global_position/global\".");
-    ROS_INFO("location_home_lat_x : %f\n"
+
+    array_global_position_uav[0] = data -> latitude;
+    array_global_position_uav[1] = data -> longitude;
+    array_global_position_uav[2] = data -> altitude;
+
+    // convert current waypoint's lat long coordinates to x y coordinates
+    convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_global_position_uav[0],
+    array_global_position_uav[1]);
+    // assuming home location to be 0, 0
+
+    array_local_position_pose_data[0] = wp_x;
+    array_local_position_pose_data[1] = wp_y;
+    //array_local_position_pose_data[2] = data -> altitude;
+
+    ROS_INFO("Data received from topic \"mavros/global_position/global\".\n");
+    ROS_INFO("\nlocation_home_lat_x : %f\n"
     "location_home_long_y : %f\n"
-    "location_home_alt_z : %f\n\n", 
-    location_home_lat_x, location_home_long_y, location_home_alt_z);
+    "location_home_alt_z : %f\n"
+    "UAV lat from global x : %f\n"
+    "UAV long from global y : %f\n"
+    "UAV position x : %f\n"
+    "UAV position y : %f\n\n", 
+    location_home_lat_x, location_home_long_y, location_home_alt_z, 
+    array_global_position_uav[0], array_global_position_uav[1],
+    array_local_position_pose_data[0], array_local_position_pose_data[1]);
 }
 
 // function to receive mission waypoints
@@ -371,13 +391,13 @@ void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
     }
     // convert current waypoint's lat long coordinates to x y coordinates
     convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
-    array_waypoint_list[waypoint_current].y_long, 0.0, 0.0);
+    array_waypoint_list[waypoint_current].y_long);
     // assuming home location to be 0, 0
     ROS_INFO("Data received from topic \"/mavros/mission/waypoints\".");
     ROS_INFO("No. of waypoints received : %d\n"
     "Current waypoint : %d\n\n"
-    "wp_mission_x : %f\n""wp_mission_y : %f\n",
-    size_waypoint_list, waypoint_current, wp_mission_x, wp_mission_y);
+    "wp_x : %f\n""wp_y : %f\n",
+    size_waypoint_list, waypoint_current, wp_x, wp_y);
 }
 /*
 // function to get home location's lat and long
@@ -391,7 +411,7 @@ void get_home_lat_and_long(const mavros_msgs::HomePosition::ConstPtr& data)
 */
 // function to convert lat long coordinates of a waypoint to simple x y coordinates
 void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, 
-double y_long_mission_wp, double wp_mission_x, double wp_mission_y)
+double y_long_mission_wp)
 {
     diff_in_lat = x_lat_mission_wp - x_lat_home;
     diff_in_long = y_long_mission_wp - y_long_home;
@@ -406,8 +426,8 @@ double y_long_mission_wp, double wp_mission_x, double wp_mission_y)
     some_parameter_x = - some_parameter_x;
     some_parameter_bearing = fmod((atan2(some_parameter_y, some_parameter_x) + (2 * M_PI)), (2 * M_PI));
 
-    wp_mission_x = wp_mission_x + (some_parameter_d * cos(some_parameter_bearing));
-    wp_mission_y = wp_mission_y + (some_parameter_d * sin(some_parameter_bearing));
+    wp_x = (some_parameter_d * cos(some_parameter_bearing));
+    wp_y = (some_parameter_d * sin(some_parameter_bearing));
 }
 
 // function to receive current mavros state data
@@ -826,14 +846,14 @@ void prediction_from_monitor_geo_fence()
 
    // calculations for potential field based velocities in two dimensions
     //dist_bet_fence_and_vehicle_overall = sqrt((pow(dist_bet_fence_and_vehicle_x, 2.0)) + (pow(dist_bet_fence_and_vehicle_y, 2.0))); //wrong
-    ROS_INFO(//"\n\nwp_mission_x : %f\n""wp_mission_y : %f\n"
+    /*ROS_INFO(//"\n\nwp_mission_x : %f\n""wp_y : %f\n"
     "lat_home_x %f\n"
     "long_home_y %f\n"
     "waypoint_lat_x %f\n"
-    "waypoint_long_y %f\n\n", //wp_mission_x, wp_mission_y, 
+    "waypoint_long_y %f\n\n", //wp_x, wp_y, 
     location_home_lat_x, location_home_long_y, 
     array_waypoint_list[waypoint_current].x_lat,
-    array_waypoint_list[waypoint_current].y_long);
+    array_waypoint_list[waypoint_current].y_long); */
     /*
     if(first_conversion){
         // convert current waypoint's lat long coordinates to x y coordinates
@@ -846,11 +866,29 @@ void prediction_from_monitor_geo_fence()
     // actions to be taken
     // in direction x : 
     
-    if(abs(wp_mission_x) > abs(fence_limit_to_consider_in_x)){
-        ROS_INFO("\n\nService waypoint skip called\n");
-        ROS_INFO("\nOld waypoint index : %d\n", waypoint_current);
-        command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
-        ROS_INFO("\nNew waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+    if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+        ROS_INFO("Service waypoint skip called\n");
+        ROS_INFO("Old waypoint index : %d\n", waypoint_current);
+
+        while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+            waypoint_current = waypoint_current + 1;
+            // convert current waypoint's lat long coordinates to x y coordinates
+            convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+            array_waypoint_list[waypoint_current].y_long);
+            // assuming home location to be 0, 0
+        }
+
+        command_waypoint_set_current.request.wp_seq = waypoint_current;
+        ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+        
+        if(srv_set_current_waypoint.call(command_waypoint_set_current)){
+            ROS_INFO("Waypoint service called successfully\n");
+        } 
+        else {
+            ROS_INFO("Service call failed\n");
+        }
+        
+        ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
     } 
     /*
     if(abs(array_local_position_pose_data[0]) < (abs(fence_limit_to_consider_in_x) - critical_radius_from_fence_limit))
@@ -864,7 +902,7 @@ void prediction_from_monitor_geo_fence()
     else if ((abs(array_local_position_pose_data[0]) > (abs(fence_limit_to_consider_in_x) - critical_radius_from_fence_limit)) && 
     (abs(array_local_position_pose_data[0]) < abs(fence_limit_to_consider_in_x))) 
     {
-        if(abs(wp_mission_x) > abs(fence_limit_to_consider_in_x)){
+        if(abs(wp_x) > abs(fence_limit_to_consider_in_x)){
             command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
         }
 
@@ -882,7 +920,7 @@ void prediction_from_monitor_geo_fence()
     }        
     else if(abs(array_local_position_pose_data[0]) > abs(fence_limit_to_consider_in_x))
     { // checking if in case the potential field is not strong enough to stop the vehicle from breaching the fence
-        if(abs(wp_mission_x) > abs(fence_limit_to_consider_in_x)){
+        if(abs(wp_x) > abs(fence_limit_to_consider_in_x)){
             command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
             command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
             command_mavros_set_mode.request.custom_mode = "AUTO"; 
@@ -896,13 +934,22 @@ void prediction_from_monitor_geo_fence()
     }  
     */
     // in direction y :
-    
-    if(abs(wp_mission_y) > abs(fence_limit_to_consider_in_y)){
-        ROS_INFO("\n\nService waypoint skip called\n");
-        ROS_INFO("\nOld waypoint index : %d\n", waypoint_current);
-        command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
-        ROS_INFO("\nNew waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
-    } 
+    /*
+    if(abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+        ROS_INFO("Service waypoint skip called for y\n");
+        ROS_INFO("Old waypoint index : %d\n", waypoint_current);
+
+        while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+            waypoint_current = waypoint_current + 1;
+            // convert current waypoint's lat long coordinates to x y coordinates
+            convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+            array_waypoint_list[waypoint_current].y_long);
+            // assuming home location to be 0, 0
+        }
+
+        command_waypoint_set_current.request.wp_seq = waypoint_current;
+        ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+    } */
     /*
     if(abs(array_local_position_pose_data[1]) < (abs(fence_limit_to_consider_in_y) - critical_radius_from_fence_limit))
     {
@@ -915,7 +962,7 @@ void prediction_from_monitor_geo_fence()
     else if ((abs(array_local_position_pose_data[1]) > (abs(fence_limit_to_consider_in_y) - critical_radius_from_fence_limit)) && 
     (abs(array_local_position_pose_data[1]) < abs(fence_limit_to_consider_in_y))) 
     {
-        if(abs(wp_mission_y) > abs(fence_limit_to_consider_in_y)){
+        if(abs(wp_y) > abs(fence_limit_to_consider_in_y)){
             command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
         }
 
@@ -933,7 +980,7 @@ void prediction_from_monitor_geo_fence()
     }        
     else if(abs(array_local_position_pose_data[1]) > abs(fence_limit_to_consider_in_y))
     { // checking if in case the potential field is not strong enough to stop the vehicle from breaching the fence
-        if(abs(wp_mission_y) > abs(fence_limit_to_consider_in_y)){
+        if(abs(wp_y) > abs(fence_limit_to_consider_in_y)){
             command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
             command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
             command_mavros_set_mode.request.custom_mode = "AUTO";  
@@ -995,7 +1042,7 @@ void publish_final_command_geo_fence()
 
     ROS_INFO("\n\nCalculated wp in x : %d\n"
     "Calculated wp in y : %d\n\n",
-    wp_mission_x, wp_mission_y);
+    wp_x, wp_y);
     /*
     ROS_INFO("\n\nDistance between fence and vehicle overall : %f\n"
     "Current angle between fence and vehicle (in radians) : %f\n"
@@ -1033,7 +1080,7 @@ void publish_final_command_geo_fence()
     */
     // finally, call the service and publish to the topic
     srv_mavros_state.call(command_mavros_set_mode);
-    srv_set_current_waypoint.call(command_waypoint_set_current);
+    //srv_set_current_waypoint.call(command_waypoint_set_current);
     pub_corrected_velocity.publish(command_geometry_twist);
     //ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel\".");
 
