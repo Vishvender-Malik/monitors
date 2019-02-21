@@ -43,12 +43,13 @@ waypoint_current_lat, waypoint_current_long, location_home_lat_x, location_home_
 wp_y = 0.0, array_global_position_uav[array_global_position_uav_size] = {0.0};
 
 int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current;
-bool home_init = true, first_conversion = true;
+bool home_init = true, first_conversion = true, list_trigger = true, corrected_auto = false, start_guided = true, flag = true;
 waypoint array_waypoint_list[array_waypoint_list_size] = {0.0}; // array of struct waypoint
 
 geometry_msgs::TwistStamped command_geometry_twist; // final command_geometry_twist message to be published
 nav_msgs::Odometry command_nav_pose; // final command_nav_pose message to be published
 mavros_msgs::SetMode command_mavros_set_mode; // final command_mavros_set_mode to be published
+mavros_msgs::SetMode command_mavros_set_mode_auto;
 mavros_msgs::WaypointSetCurrent command_waypoint_set_current; // final command to publish updated waypoint
 
 // publishers, subscribers and services for monitor_geo_fence
@@ -381,13 +382,17 @@ void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data)
 // function to receive mission waypoints
 void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
 {
-    size_waypoint_list = list -> waypoints.size();
     waypoint_current = list -> current_seq;
 
-    for(int i = 0; i < size_waypoint_list; i++){
-        array_waypoint_list[i].x_lat = list -> waypoints[i].x_lat;
-        array_waypoint_list[i].y_long = list -> waypoints[i].y_long;
-        array_waypoint_list[i].z_alt = list -> waypoints[i].z_alt;
+    if(list_trigger){
+        size_waypoint_list = list -> waypoints.size();
+
+        for(int i = 0; i < size_waypoint_list; i++){
+            array_waypoint_list[i].x_lat = list -> waypoints[i].x_lat;
+            array_waypoint_list[i].y_long = list -> waypoints[i].y_long;
+            array_waypoint_list[i].z_alt = list -> waypoints[i].z_alt;
+        }
+        list_trigger = false;
     }
     // convert current waypoint's lat long coordinates to x y coordinates
     convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
@@ -869,13 +874,20 @@ void prediction_from_monitor_geo_fence()
     if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
         ROS_INFO("Service waypoint skip called\n");
         ROS_INFO("Old waypoint index : %d\n", waypoint_current);
+        ROS_INFO("Fence breach at x : %f y : %f\n", wp_x, wp_y);
 
         while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
-            waypoint_current = waypoint_current + 1;
             // convert current waypoint's lat long coordinates to x y coordinates
             convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
             array_waypoint_list[waypoint_current].y_long);
             // assuming home location to be 0, 0
+            if(abs(wp_x) < abs(fence_limit_to_consider_in_x) && abs(wp_y) < abs(fence_limit_to_consider_in_y)){
+                break; // do nothing
+            }
+            else{
+                waypoint_current = waypoint_current + 1;
+            }
+            break;
         }
 
         command_waypoint_set_current.request.wp_seq = waypoint_current;
@@ -902,13 +914,73 @@ void prediction_from_monitor_geo_fence()
     else if ((abs(array_local_position_pose_data[0]) > (abs(fence_limit_to_consider_in_x) - critical_radius_from_fence_limit)) && 
     (abs(array_local_position_pose_data[0]) < abs(fence_limit_to_consider_in_x))) 
     {
-        if(abs(wp_x) > abs(fence_limit_to_consider_in_x)){
-            command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
+        if(flag){
+            array_monitor_geo_fence_triggered[0] = "Yes.";
+            command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+            command_mavros_set_mode.request.custom_mode = "GUIDED";        
+            
+            if(srv_mavros_state.call(command_mavros_set_mode)){
+                ROS_INFO("Service set mode called successfully\n");
+                ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode.response.mode_sent);
+            }
+            else{
+                ROS_INFO("Service call failed\n");
+            }
+
+            command_geometry_twist.twist.linear.x = 0;
+            command_geometry_twist.twist.linear.y = 0;
+            command_geometry_twist.twist.linear.z = 0;
         }
 
-        array_monitor_geo_fence_triggered[0] = "Yes.";
-        command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
-        command_mavros_set_mode.request.custom_mode = "AUTO";        
+        if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+            flag = false;
+            ROS_INFO("Service waypoint skip called\n");
+            ROS_INFO("Old waypoint index : %d\n", waypoint_current);
+            ROS_INFO("Fence breach at x : %f y : %f\n", wp_x, wp_y);
+
+            while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+                // convert current waypoint's lat long coordinates to x y coordinates
+                convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+                array_waypoint_list[waypoint_current].y_long);
+                // assuming home location to be 0, 0
+                if(abs(wp_x) < abs(fence_limit_to_consider_in_x) && abs(wp_y) < abs(fence_limit_to_consider_in_y)){
+                    flag = true;
+                    break; // do nothing
+                }
+                else{
+                    waypoint_current = waypoint_current + 1;
+                    corrected_auto = true;
+                }
+                break;
+            } // end of inner while
+
+            command_waypoint_set_current.request.wp_seq = waypoint_current;
+            ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+            
+            if(srv_set_current_waypoint.call(command_waypoint_set_current)){
+                ROS_INFO("Waypoint service called successfully\n");
+            } 
+            else {
+                ROS_INFO("Service call failed\n");
+            }
+            
+            ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
+        } // end of outer if
+
+        if(corrected_auto){
+            array_monitor_geo_fence_triggered[0] = "Yes.";
+            command_mavros_set_mode_auto.request.base_mode = 220; // mode : AUTO ARMED
+            command_mavros_set_mode_auto.request.custom_mode = "AUTO";  
+
+            if(srv_mavros_state.call(command_mavros_set_mode_auto)){
+                ROS_INFO("Service set mode called successfully\n");
+                ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode_auto.response.mode_sent);
+            }
+            else{
+                ROS_INFO("Service call failed\n");
+            } 
+            corrected_auto = false;     
+        }
         
         gradient_x = constant_beta_x;
         gradient_y = 0;
@@ -920,37 +992,71 @@ void prediction_from_monitor_geo_fence()
     }        
     else if(abs(array_local_position_pose_data[0]) > abs(fence_limit_to_consider_in_x))
     { // checking if in case the potential field is not strong enough to stop the vehicle from breaching the fence
-        if(abs(wp_x) > abs(fence_limit_to_consider_in_x)){
-            command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
-            command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
-            command_mavros_set_mode.request.custom_mode = "AUTO"; 
-        }
-
         array_monitor_geo_fence_triggered[0] = "Yes.";
         command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
         command_mavros_set_mode.request.custom_mode = "GUIDED";        
+        
+        if(srv_mavros_state.call(command_mavros_set_mode)){
+            ROS_INFO("Service set mode called successfully\n");
+            ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode.response.mode_sent);
+        }
+        else{
+            ROS_INFO("Service call failed\n");
+        }
+
+        command_geometry_twist.twist.linear.x = 0;
+        command_geometry_twist.twist.linear.y = 0;
+        command_geometry_twist.twist.linear.z = 0;
+        
+        if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+            ROS_INFO("Service waypoint skip called\n");
+            ROS_INFO("Old waypoint index : %d\n", waypoint_current);
+            ROS_INFO("Fence breach at x : %f y : %f\n", wp_x, wp_y);
+
+            while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+                // convert current waypoint's lat long coordinates to x y coordinates
+                convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+                array_waypoint_list[waypoint_current].y_long);
+                // assuming home location to be 0, 0
+                if(abs(wp_x) < abs(fence_limit_to_consider_in_x) && abs(wp_y) < abs(fence_limit_to_consider_in_y)){
+                    break; // do nothing
+                }
+                else{
+                    waypoint_current = waypoint_current + 1;
+                }
+                break;
+            } // end of inner while
+
+            command_waypoint_set_current.request.wp_seq = waypoint_current;
+            ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+            
+            if(srv_set_current_waypoint.call(command_waypoint_set_current)){
+                ROS_INFO("Waypoint service called successfully\n");
+            } 
+            else {
+                ROS_INFO("Service call failed\n");
+            }
+            
+            ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
+        } // end of inner if
+
+        array_monitor_geo_fence_triggered[0] = "Yes.";
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";  
+
+        if(srv_mavros_state.call(command_mavros_set_mode)){
+            ROS_INFO("Service set mode called successfully\n");
+            ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode.response.mode_sent);
+        }
+        else{
+            ROS_INFO("Service call failed\n");
+        }      
 
         command_geometry_twist.twist.linear.x = 0;
     }  
-    */
+    
     // in direction y :
-    /*
-    if(abs(wp_y) > abs(fence_limit_to_consider_in_y)){
-        ROS_INFO("Service waypoint skip called for y\n");
-        ROS_INFO("Old waypoint index : %d\n", waypoint_current);
-
-        while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
-            waypoint_current = waypoint_current + 1;
-            // convert current waypoint's lat long coordinates to x y coordinates
-            convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
-            array_waypoint_list[waypoint_current].y_long);
-            // assuming home location to be 0, 0
-        }
-
-        command_waypoint_set_current.request.wp_seq = waypoint_current;
-        ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
-    } */
-    /*
+    
     if(abs(array_local_position_pose_data[1]) < (abs(fence_limit_to_consider_in_y) - critical_radius_from_fence_limit))
     {
         array_monitor_geo_fence_triggered[1] = "No.";
@@ -962,13 +1068,65 @@ void prediction_from_monitor_geo_fence()
     else if ((abs(array_local_position_pose_data[1]) > (abs(fence_limit_to_consider_in_y) - critical_radius_from_fence_limit)) && 
     (abs(array_local_position_pose_data[1]) < abs(fence_limit_to_consider_in_y))) 
     {
-        if(abs(wp_y) > abs(fence_limit_to_consider_in_y)){
-            command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
+        array_monitor_geo_fence_triggered[0] = "Yes.";
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";        
+        
+        if(srv_mavros_state.call(command_mavros_set_mode)){
+            ROS_INFO("Service set mode called successfully\n");
+            ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode.response.mode_sent);
         }
+        else{
+            ROS_INFO("Service call failed\n");
+        }
+
+        command_geometry_twist.twist.linear.x = 0;
+        command_geometry_twist.twist.linear.y = 0;
+        command_geometry_twist.twist.linear.z = 0;
+
+        if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+            ROS_INFO("Service waypoint skip called\n");
+            ROS_INFO("Old waypoint index : %d\n", waypoint_current);
+            ROS_INFO("Fence breach at x : %f y : %f\n", wp_x, wp_y);
+
+            while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+                // convert current waypoint's lat long coordinates to x y coordinates
+                convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+                array_waypoint_list[waypoint_current].y_long);
+                // assuming home location to be 0, 0
+                if(abs(wp_x) < abs(fence_limit_to_consider_in_x) && abs(wp_y) < abs(fence_limit_to_consider_in_y)){
+                    break; // do nothing
+                }
+                else{
+                    waypoint_current = waypoint_current + 1;
+                }
+                break;
+            } // end of inner while
+
+            command_waypoint_set_current.request.wp_seq = waypoint_current;
+            ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+            
+            if(srv_set_current_waypoint.call(command_waypoint_set_current)){
+                ROS_INFO("Waypoint service called successfully\n");
+            } 
+            else {
+                ROS_INFO("Service call failed\n");
+            }
+            
+            ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
+        } // end of inner if
 
         array_monitor_geo_fence_triggered[1] = "Yes.";
         command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
-        command_mavros_set_mode.request.custom_mode = "AUTO";        
+        command_mavros_set_mode.request.custom_mode = "AUTO";    
+
+        if(srv_mavros_state.call(command_mavros_set_mode)){
+            ROS_INFO("Service set mode called successfully\n");
+            ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode.response.mode_sent);
+        }
+        else{
+            ROS_INFO("Service call failed\n");
+        }    
         
         gradient_x = 0;
         gradient_y = constant_beta_y;
@@ -980,15 +1138,65 @@ void prediction_from_monitor_geo_fence()
     }        
     else if(abs(array_local_position_pose_data[1]) > abs(fence_limit_to_consider_in_y))
     { // checking if in case the potential field is not strong enough to stop the vehicle from breaching the fence
-        if(abs(wp_y) > abs(fence_limit_to_consider_in_y)){
-            command_waypoint_set_current.request.wp_seq = waypoint_current + 1;
-            command_mavros_set_mode.request.base_mode = 220; // mode : AUTO ARMED
-            command_mavros_set_mode.request.custom_mode = "AUTO";  
+        array_monitor_geo_fence_triggered[0] = "Yes.";
+        command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
+        command_mavros_set_mode.request.custom_mode = "GUIDED";        
+        
+        if(srv_mavros_state.call(command_mavros_set_mode)){
+            ROS_INFO("Service set mode called successfully\n");
+            ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode.response.mode_sent);
         }
+        else{
+            ROS_INFO("Service call failed\n");
+        }
+
+        command_geometry_twist.twist.linear.x = 0;
+        command_geometry_twist.twist.linear.y = 0;
+        command_geometry_twist.twist.linear.z = 0;
+        
+        if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+            ROS_INFO("Service waypoint skip called\n");
+            ROS_INFO("Old waypoint index : %d\n", waypoint_current);
+            ROS_INFO("Fence breach at x : %f y : %f\n", wp_x, wp_y);
+
+            while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
+                // convert current waypoint's lat long coordinates to x y coordinates
+                convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+                array_waypoint_list[waypoint_current].y_long);
+                // assuming home location to be 0, 0
+                if(abs(wp_x) < abs(fence_limit_to_consider_in_x) && abs(wp_y) < abs(fence_limit_to_consider_in_y)){
+                    break; // do nothing
+                }
+                else{
+                    waypoint_current = waypoint_current + 1;
+                }
+                break;
+            } // end of inner while
+
+            command_waypoint_set_current.request.wp_seq = waypoint_current;
+            ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+            
+            if(srv_set_current_waypoint.call(command_waypoint_set_current)){
+                ROS_INFO("Waypoint service called successfully\n");
+            } 
+            else {
+                ROS_INFO("Service call failed\n");
+            }
+            
+            ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
+        } // end of inner if
 
         array_monitor_geo_fence_triggered[1] = "Yes.";
         command_mavros_set_mode.request.base_mode = 216; // mode : GUIDED ARMED
-        command_mavros_set_mode.request.custom_mode = "GUIDED";        
+        command_mavros_set_mode.request.custom_mode = "GUIDED";   
+
+        if(srv_mavros_state.call(command_mavros_set_mode)){
+            ROS_INFO("Service set mode called successfully\n");
+            ROS_INFO("New flight mode set : %d\n\n", command_mavros_set_mode.response.mode_sent);
+        }
+        else{
+            ROS_INFO("Service call failed\n");
+        }     
 
         command_geometry_twist.twist.linear.y = 0;
     }  
@@ -1078,8 +1286,6 @@ void publish_final_command_geo_fence()
     command_geometry_twist.twist.linear.x, command_geometry_twist.twist.linear.y, command_geometry_twist.twist.linear.z);
     ROS_INFO("\n\n\n---------------------------------------------------------------------------------------------\n");
     */
-    // finally, call the service and publish to the topic
-    srv_mavros_state.call(command_mavros_set_mode);
     //srv_set_current_waypoint.call(command_waypoint_set_current);
     pub_corrected_velocity.publish(command_geometry_twist);
     //ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel\".");
