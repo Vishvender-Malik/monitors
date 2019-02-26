@@ -99,7 +99,7 @@ include_directories(
 
 
 add_executable(node_pkg_ros_monitor src/node_pkg_ros_monitor.cpp)#file with a main function
-add_executable(node_monitor_wind src/node_monitor_wind.cpp src/monitor_base.cpp)#file with a main function
+add_executable(node_monitor_geo_fence_plane src/node_monitor_geo_fence_plane.cpp src/monitor_base.cpp)#file with a main function
 add_executable(node_monitor_geo_fence src/node_monitor_geo_fence.cpp src/monitor_base.cpp)#file with a main function
 
 ## Rename C++ executable without prefix
@@ -124,7 +124,7 @@ add_executable(node_monitor_geo_fence src/node_monitor_geo_fence.cpp src/monitor
    ${catkin_LIBRARIES}
  )
 
- target_link_libraries(node_monitor_wind
+ target_link_libraries(node_monitor_geo_fence_plane
    ${catkin_LIBRARIES}
  )
 

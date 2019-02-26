@@ -1,9 +1,9 @@
 /* Author : Vishvender Malik
 Email : vishvenderm@iiitd.ac.in
-File : node_monitor_geo_fence.cpp
+File : node_monitor_geo_fence_plane.cpp
 */
 
-#include "monitor_geo_fence.h"
+#include "monitor_geo_fence_plane.h"
 
 //-------------------------------------------------------------------------------------------------------------------------------
 
@@ -40,9 +40,16 @@ resulting_angle_theta = 0.0, critical_radius_start_from_home = 0.0, constant_bet
 x_lat_home, y_long_home, x_lat_mission_wp, y_long_mission_wp, diff_in_lat, diff_in_long,
 some_parameter_a, some_parameter_c, some_parameter_d, some_parameter_y, some_parameter_x, some_parameter_bearing,
 waypoint_current_lat, waypoint_current_long, location_home_lat_x, location_home_long_y, location_home_alt_z, wp_x = 0.0, 
-wp_y = 0.0, array_global_position_uav[array_global_position_uav_size] = {0.0};
+wp_y = 0.0, array_global_position_uav[array_global_position_uav_size] = {0.0}, theta_plane, old_wp_x, old_wp_y,
+loiter_gps_wp_x, loiter_gps_wp_y;
 
-int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current;
+int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current, waypoint_old, waypoint_new;
+
+std::vector<float> vec_wp_lat;
+std::vector<float> vec_wp_long;
+std::vector<float> vec_wp_alt;
+std::vector<mavros_msgs::Waypoint> vec_waypoint_table;
+
 bool home_init = true, first_conversion = true, list_trigger = true, corrected_auto = false, start_guided = true, flag = true,
 monitor_triggered = false;
 
@@ -52,9 +59,10 @@ geometry_msgs::TwistStamped command_geometry_twist; // final command_geometry_tw
 nav_msgs::Odometry command_nav_pose; // final command_nav_pose message to be published
 mavros_msgs::SetMode command_mavros_set_mode; // final command_mavros_set_mode to be published
 mavros_msgs::SetMode command_mavros_set_mode_auto;
-mavros_msgs::WaypointSetCurrent command_waypoint_set_current; // final command to publish updated waypoint
+mavros_msgs::WaypointSetCurrent command_waypoint_set_current; // final command to publish updated waypoint 
+mavros_msgs::WaypointPush command_waypoint_push;// wp message to be pushed
 
-// publishers, subscribers and services for monitor_geo_fence
+// publishers, subscribers and services for monitor_geo_fence_plane
 ros::Subscriber sub_guidance_velocity;
 ros::Publisher pub_corrected_velocity;
 ros::Subscriber sub_local_position_data;
@@ -64,6 +72,7 @@ ros::Subscriber sub_waypoint_list;
 ros::Subscriber sub_home_lat_and_long;
 ros::ServiceClient srv_set_current_waypoint;
 ros::Subscriber sub_global_position_uav;
+ros::ServiceClient srv_wp_push;
 
 //<----------------------------------------------------------------------------------------------------------------------------->
 
@@ -108,12 +117,12 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "node_monitor_geo_fence");
     
     // create monitor object
-    monitor_geo_fence obj_monitor_geo_fence;
+    monitor_geo_fence_plane obj_monitor_geo_fence_plane;
     // implement class functions
-    obj_monitor_geo_fence.init_parameter_server();
-    //obj_monitor_geo_fence.set_monitor_topics(config, level); // main issue is here, not using same config as before
-    obj_monitor_geo_fence.initialize_pub_and_sub();
-    obj_monitor_geo_fence.monitor_start();
+    obj_monitor_geo_fence_plane.init_parameter_server();
+    //obj_monitor_geo_fence_plane.set_monitor_topics(config, level); // main issue is here, not using same config as before
+    obj_monitor_geo_fence_plane.initialize_pub_and_sub();
+    obj_monitor_geo_fence_plane.monitor_start();
     //ros::spin();
     return 0;
 
@@ -121,11 +130,11 @@ int main(int argc, char **argv)
 
 //<------------------------------------------Function definitions---------------------------------------------------------------->
 
-monitor_geo_fence::monitor_geo_fence() : monitor_base(){
-    ROS_INFO("monitor_geo_fence constructor called, object initialized\n");
+monitor_geo_fence_plane::monitor_geo_fence_plane() : monitor_base(){
+    ROS_INFO("monitor_geo_fence_plane constructor called, object initialized\n");
 }
 
-void monitor_geo_fence::set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level){
+void monitor_geo_fence_plane::set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level){
     
     ROS_INFO("set_monitor_topics function reached\n");
     
@@ -180,7 +189,7 @@ void monitor_geo_fence::set_monitor_topics(pkg_ros_monitor::monitor_Config &conf
     ROS_INFO("set_monitor_topics function ended\n");
 }
 
-void monitor_geo_fence::initialize_pub_and_sub(){
+void monitor_geo_fence_plane::initialize_pub_and_sub(){
     
     ROS_INFO("start of initialize pub and sub function reached\n");
     // create a nodehandle to enable interaction with ros commands, usually always just after ros::init
@@ -204,11 +213,13 @@ void monitor_geo_fence::initialize_pub_and_sub(){
     srv_mavros_state = nodeHandle.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
     // service to set updated current waypoint
     srv_set_current_waypoint = nodeHandle.serviceClient<mavros_msgs::WaypointSetCurrent>("/mavros/mission/set_current");
+    // service to push updated waypoints
+    srv_wp_push = nodeHandle.serviceClient<mavros_msgs::WaypointPush>("/mavros/mission/push");
 
     ROS_INFO("end of initialize pub and sub function reached\n");
 }
 
-void monitor_geo_fence::monitor_start(){
+void monitor_geo_fence_plane::monitor_start(){
 
     ROS_INFO("start of monitor_start function reached");
     // get single wind monitor instance
@@ -385,15 +396,29 @@ void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data)
 // function to receive mission waypoints
 void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
 {
-    waypoint_current = list -> current_seq;
-
+    waypoint_old = waypoint_current;
+    waypoint_new = list -> current_seq;
+    waypoint_current = waypoint_new;
+    // to store list just one time
     if(list_trigger){
+        waypoint_old = waypoint_current;
         size_waypoint_list = list -> waypoints.size();
 
         for(int i = 0; i < size_waypoint_list; i++){
+            // populate array to store wp list
             array_waypoint_list[i].x_lat = list -> waypoints[i].x_lat;
             array_waypoint_list[i].y_long = list -> waypoints[i].y_long;
             array_waypoint_list[i].z_alt = list -> waypoints[i].z_alt;
+            
+            // populate vector to create editable wp table
+            vec_waypoint_table[i].command = 16; // uint16 NAV_WAYPOINT = 16, # Navigate to waypoint
+            vec_waypoint_table[i].param1 = 0.0; // No. of turns by UAV at wp
+            vec_waypoint_table[i].param2 = 0.0;
+            vec_waypoint_table[i].param3 = 0.0;
+            vec_waypoint_table[i].param4 = 0.0;
+            vec_waypoint_table[i].x_lat = list -> waypoints[i].x_lat;
+            vec_waypoint_table[i].y_long = list -> waypoints[i].y_long;
+            vec_waypoint_table[i].z_alt = list -> waypoints[i].z_alt;
         }
         list_trigger = false;
     }
@@ -403,9 +428,11 @@ void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
     // assuming home location to be 0, 0
     ROS_INFO("Data received from topic \"/mavros/mission/waypoints\".");
     ROS_INFO("No. of waypoints received : %d\n"
+    "Old waypoint : %d\n"
+    "New waypoint : %d\n"
     "Current waypoint : %d\n\n"
     "wp_x : %f\n""wp_y : %f\n",
-    size_waypoint_list, waypoint_current, wp_x, wp_y);
+    size_waypoint_list, waypoint_old, waypoint_new, waypoint_current, wp_x, wp_y);
 }
 /*
 // function to get home location's lat and long
@@ -884,7 +911,61 @@ void prediction_from_monitor_geo_fence()
     */
     // actions to be taken
     // in direction x : 
-    
+//------------------------------------------------------------------------------------------------------------------------------------------------
+    /* Approach for fixed plane :
+    get current wp, and store old wp,
+    check if UAV is 25 m away from current wp,
+    if yes, monitor is triggered, cal theta using old and new wp's,
+    then cal loiter point x and y using equations, create service message
+    push this loiter wp to wp vector, call service to push this vector list,
+    put current wp in old wp, then start checking when UAV is 25m away from old wp,
+    when it is, switch wp to wp + 1
+    */ 
+
+    convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_old].x_lat,
+    array_waypoint_list[waypoint_old].y_long);
+
+    old_wp_x = wp_x;
+    old_wp_y = wp_y;
+
+    // convert current waypoint's lat long coordinates to x y coordinates
+    convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+    array_waypoint_list[waypoint_current].y_long);
+    // assuming home location to be 0, 0
+
+    if((wp_x - array_local_position_pose_data[0] <= 25) || (wp_y - array_local_position_pose_data[1] <= 25)){
+        theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
+
+        // loiter wp in gps coordinates?
+        loiter_gps_wp_x = array_global_position_uav[0] + (25 * cos(theta_plane + 1.57));
+        loiter_gps_wp_y = array_global_position_uav[1] + (25 * sin(theta_plane + 1.57)); 
+
+        // it's replacing wp instead of adding to the table,
+        // if we add, UAV will try to go tto that wp next, 
+        // or before, depending on where we add new wp in the vector
+        vec_waypoint_table[waypoint_current].command = 18; // uint16 NAV_LOITER_TURNS = 18, # Loiter around this waypoint for X turns
+        vec_waypoint_table[waypoint_current].param1 = 0.0; // X no of turns
+        vec_waypoint_table[waypoint_current].param2 = 0.0;
+        vec_waypoint_table[waypoint_current].param3 = 0.0;
+        vec_waypoint_table[waypoint_current].param4 = 0.0;
+        vec_waypoint_table[waypoint_current].x_lat = loiter_gps_wp_x;
+        vec_waypoint_table[waypoint_current].y_long = loiter_gps_wp_y;
+        vec_waypoint_table[waypoint_current].z_alt = array_waypoint_list[waypoint_current].z_alt;
+    }  
+
+    // push above table to wp message
+    command_waypoint_push.request.waypoints = vec_waypoint_table;
+    // call push service with above message
+    if(srv_wp_push.call(command_waypoint_push)){
+        ROS_INFO("Service waypoint push called successfully\n");
+    } 
+    else {
+        ROS_ERROR("Service waypoint push call failed\n");
+    }
+    // do we really need to check again if UAV is 25m from now skipped wp? will loiter mode convert to AUTO on it's own when next
+    // wp is updated? because checking again is quite tricky considering refresh rate of monitor
+//------------------------------------------------------------------------------------------------------------------------------------------------
+    /*
     if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
         ROS_INFO("Service waypoint skip called\n");
         ROS_INFO("Old waypoint index : %d\n", waypoint_current);
@@ -915,7 +996,7 @@ void prediction_from_monitor_geo_fence()
         }
         
         ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
-    } 
+    } */
     /*
    if(monitor_triggered == false)
    {

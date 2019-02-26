@@ -1,6 +1,6 @@
 
 Terminal 1
-1. cd ardupilot/ArduCopter
+cd ardupilot/ArduCopter 
 2. sim_vehicle.py --console --map --aircraft test
 3. wp load ../Tools/autotest/ArduPlane-Missions/waypoint3.txt // Don't use
 4. mode auto

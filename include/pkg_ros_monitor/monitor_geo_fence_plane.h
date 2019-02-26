@@ -1,6 +1,6 @@
 /* Author : Vishvender Malik
 Email : vishvenderm@iiitd.ac.in
-File : monitor_wind.h
+File : monitor_geo_fence_plane.h
 */
 
 // failsafe for if this header is used more than once in
@@ -10,13 +10,13 @@ File : monitor_wind.h
 
 #include "monitor_base.h"
 
-class monitor_wind : public monitor_base
+class monitor_geo_fence_plane : public monitor_base
 {
     public:
-        //monitor_wind(monitor_wind const&) = delete; // for use with C++11
-        //void operator=(monitor_wind const&)  = delete; // for use with C++11
-        monitor_wind();
-        //static monitor_wind& getInstance(); // get single instance of this class
+        //monitor_geo_fence_plane(monitor_geo_fence_plane const&) = delete; // for use with C++11
+        //void operator=(monitor_geo_fence_plane const&)  = delete; // for use with C++11
+        monitor_geo_fence_plane();
+        //static monitor_geo_fence_plane& getInstance(); // get single instance of this class
         //virtual void init_parameter_server();
         using monitor_base::set_monitor_topics;
         virtual void set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level); // set custom topics
@@ -24,6 +24,6 @@ class monitor_wind : public monitor_base
         virtual void initialize_pub_and_sub(); // initialize publishers and subscribers
         using monitor_base::monitor_start;
         virtual void monitor_start();      
-}; // end of class monitor_wind
+}; // end of class monitor_geo_fence_plane
 
 #endif
