@@ -933,37 +933,41 @@ void prediction_from_monitor_geo_fence()
     array_waypoint_list[waypoint_current].y_long);
     // assuming home location to be 0, 0
 
-    if((wp_x - array_local_position_pose_data[0] <= 25) || (wp_y - array_local_position_pose_data[1] <= 25)){
+    if(abs(fence_limit_to_consider_in_x) - abs(wp_x) <= 25 || abs(fence_limit_to_consider_in_y) - abs(wp_y) <= 25){
+
+        if((wp_x - array_local_position_pose_data[0] <= 25) || (wp_y - array_local_position_pose_data[1] <= 25)){
         theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
 
-        // loiter wp in gps coordinates?
-        loiter_gps_wp_x = array_global_position_uav[0] + (25 * cos(theta_plane + 1.57));
-        loiter_gps_wp_y = array_global_position_uav[1] + (25 * sin(theta_plane + 1.57)); 
+            // loiter wp in gps coordinates?
+            loiter_gps_wp_x = array_global_position_uav[0] + (25 * cos(theta_plane + 1.57));
+            loiter_gps_wp_y = array_global_position_uav[1] + (25 * sin(theta_plane + 1.57)); 
 
-        // it's replacing wp instead of adding to the table,
-        // if we add, UAV will try to go tto that wp next, 
-        // or before, depending on where we add new wp in the vector
-        vec_waypoint_table[waypoint_current].command = 18; // uint16 NAV_LOITER_TURNS = 18, # Loiter around this waypoint for X turns
-        vec_waypoint_table[waypoint_current].param1 = 0.0; // X no of turns
-        vec_waypoint_table[waypoint_current].param2 = 0.0;
-        vec_waypoint_table[waypoint_current].param3 = 0.0;
-        vec_waypoint_table[waypoint_current].param4 = 0.0;
-        vec_waypoint_table[waypoint_current].x_lat = loiter_gps_wp_x;
-        vec_waypoint_table[waypoint_current].y_long = loiter_gps_wp_y;
-        vec_waypoint_table[waypoint_current].z_alt = array_waypoint_list[waypoint_current].z_alt;
-    }  
+            // it's replacing wp instead of adding to the table,
+            // if we add, UAV will try to go tto that wp next, 
+            // or before, depending on where we add new wp in the vector
+            vec_waypoint_table[waypoint_current].command = 18; // uint16 NAV_LOITER_TURNS = 18, # Loiter around this waypoint for X turns
+            vec_waypoint_table[waypoint_current].param1 = 0.0; // X no of turns
+            vec_waypoint_table[waypoint_current].param2 = 0.0;
+            vec_waypoint_table[waypoint_current].param3 = 0.0;
+            vec_waypoint_table[waypoint_current].param4 = 0.0;
+            vec_waypoint_table[waypoint_current].x_lat = loiter_gps_wp_x;
+            vec_waypoint_table[waypoint_current].y_long = loiter_gps_wp_y;
+            vec_waypoint_table[waypoint_current].z_alt = array_waypoint_list[waypoint_current].z_alt;
+        }  
 
-    // push above table to wp message
-    command_waypoint_push.request.waypoints = vec_waypoint_table;
-    // call push service with above message
-    if(srv_wp_push.call(command_waypoint_push)){
-        ROS_INFO("Service waypoint push called successfully\n");
-    } 
-    else {
-        ROS_ERROR("Service waypoint push call failed\n");
-    }
+        // push above table to wp message
+        command_waypoint_push.request.waypoints = vec_waypoint_table;
+        // call push service with above message
+        if(srv_wp_push.call(command_waypoint_push)){
+            ROS_INFO("Service waypoint push called successfully\n");
+        } 
+        else {
+            ROS_ERROR("Service waypoint push call failed\n");
+        }
     // do we really need to check again if UAV is 25m from now skipped wp? will loiter mode convert to AUTO on it's own when next
     // wp is updated? because checking again is quite tricky considering refresh rate of monitor
+    } // end of outer if
+
 //------------------------------------------------------------------------------------------------------------------------------------------------
     /*
     if(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
