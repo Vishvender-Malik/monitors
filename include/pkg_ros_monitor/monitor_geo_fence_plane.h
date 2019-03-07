@@ -13,8 +13,11 @@ File : monitor_geo_fence_plane.h
 class monitor_geo_fence_plane : public monitor_base
 {
     public:
+        //monitor_geo_fence_plane(monitor_geo_fence_plane const&) = delete; // for use with C++11
+        //void operator=(monitor_geo_fence_plane const&)  = delete; // for use with C++11
         monitor_geo_fence_plane();
-        
+        //static monitor_geo_fence_plane& getInstance(); // get single instance of this class
+        //virtual void init_parameter_server();
         using monitor_base::dynamic_reconfigure_callback;
         virtual void dynamic_reconfigure_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level); // set custom topics
         using monitor_base::initialize_pub_and_sub;

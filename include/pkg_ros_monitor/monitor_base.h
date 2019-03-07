@@ -23,6 +23,7 @@ class monitor_base
     // define a variable to represent our callback object and provide it info about our callback function
     dynamic_reconfigure::Server<pkg_ros_monitor::monitor_Config>::CallbackType callback_variable;
     
+    // constructor + destructor
     monitor_base();
     virtual ~monitor_base();
 
