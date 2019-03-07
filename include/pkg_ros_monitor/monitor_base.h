@@ -30,7 +30,7 @@ class monitor_base
     // initialize parameter server
     void init_parameter_server();
     // callback function to configuration file to load parameters
-    virtual void set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level) = 0;
+    virtual void dynamic_reconfigure_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level) = 0;
     // initialize publishers and subscribers
     virtual void initialize_pub_and_sub() = 0; 
     // start the monitor,

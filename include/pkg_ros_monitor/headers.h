@@ -25,3 +25,4 @@ File : headers.h
 #include <mavros_msgs/WaypointSetCurrent.h>
 #include <mavros_msgs/WaypointPush.h>
 #include <sensor_msgs/NavSatFix.h>
+#define PI 3.14159265

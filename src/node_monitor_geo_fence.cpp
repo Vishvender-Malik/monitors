@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     monitor_geo_fence obj_monitor_geo_fence;
     // implement class functions
     obj_monitor_geo_fence.init_parameter_server();
-    //obj_monitor_geo_fence.set_monitor_topics(config, level); // main issue is here, not using same config as before
+    //obj_monitor_geo_fence.dynamic_reconfigure_callback(config, level); // main issue is here, not using same config as before
     obj_monitor_geo_fence.initialize_pub_and_sub();
     obj_monitor_geo_fence.monitor_start();
     //ros::spin();
@@ -125,9 +125,9 @@ monitor_geo_fence::monitor_geo_fence() : monitor_base(){
     ROS_INFO("monitor_geo_fence constructor called, object initialized\n");
 }
 
-void monitor_geo_fence::set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level){
+void monitor_geo_fence::dynamic_reconfigure_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level){
     
-    ROS_INFO("set_monitor_topics function reached\n");
+    ROS_INFO("dynamic_reconfigure_callback function reached\n");
     
     // for geo fence monitor
     set_topic_guidance_velocity(config.set_topic_guidance_velocity.c_str());
@@ -177,7 +177,7 @@ void monitor_geo_fence::set_monitor_topics(pkg_ros_monitor::monitor_Config &conf
     config.set_topic_corrected_velocity.c_str(), config.set_topic_waypoint_list.c_str(),
     config.set_topic_home_lat_and_long.c_str(), config.set_topic_global_position_uav.c_str());
 
-    ROS_INFO("set_monitor_topics function ended\n");
+    ROS_INFO("dynamic_reconfigure_callback function ended\n");
 }
 
 void monitor_geo_fence::initialize_pub_and_sub(){

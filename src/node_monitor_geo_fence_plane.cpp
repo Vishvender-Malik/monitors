@@ -25,7 +25,7 @@ struct waypoint{
 };
 
 const int array_velocity_guidance_size = 3, array_local_position_pose_data_size = 3, monitor_geo_fence_triggered_size = 3,
-array_waypoint_list_size = 100, radius_of_earth = 6371, array_global_position_uav_size = 3;
+array_waypoint_list_size = 100, radius_of_earth = 6371, array_global_position_uav_size = 3, radius_earth = 6371000;
 
 std::string array_monitor_geo_fence_triggered[monitor_geo_fence_triggered_size] = "No."; // for geo fence monitor
 
@@ -41,7 +41,7 @@ x_lat_home, y_long_home, x_lat_mission_wp, y_long_mission_wp, diff_in_lat, diff_
 some_parameter_a, some_parameter_c, some_parameter_d, some_parameter_y, some_parameter_x, some_parameter_bearing,
 waypoint_current_lat, waypoint_current_long, location_home_lat_x, location_home_long_y, location_home_alt_z, wp_x = 0.0, 
 wp_y = 0.0, array_global_position_uav[array_global_position_uav_size] = {0.0}, theta_plane, old_wp_x, old_wp_y,
-loiter_gps_wp_x, loiter_gps_wp_y;
+loiter_wp_x, loiter_wp_y, bearing, x_to_lat, y_to_long;
 
 int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current, waypoint_old, waypoint_new;
 
@@ -56,6 +56,8 @@ monitor_triggered = false;
 waypoint array_waypoint_list[array_waypoint_list_size] = {0.0}; // array of struct waypoint
 
 geometry_msgs::TwistStamped command_geometry_twist; // final command_geometry_twist message to be published
+mavros_msgs::Waypoint message_waypoint; // waypoint table message
+
 nav_msgs::Odometry command_nav_pose; // final command_nav_pose message to be published
 mavros_msgs::SetMode command_mavros_set_mode; // final command_mavros_set_mode to be published
 mavros_msgs::SetMode command_mavros_set_mode_auto;
@@ -78,7 +80,7 @@ ros::ServiceClient srv_wp_push;
 
 //<------------------------------------------Local function declarations--------------------------------------------------------->
 
-void publish_final_command_geo_fence();
+void publish_final_command_geo_fence_plane();
 void get_guidance_controller_velocity(const geometry_msgs::TwistStamped::ConstPtr& data);
 void set_topic_guidance_velocity(std::string guidance_velocity);
 void set_max_possible_pose_in_positive_x(int config_max_possible_pose_in_positive_x);
@@ -99,11 +101,12 @@ void set_radius_of_circle_of_influence_s(double radius_of_circle_of_influence);
 void get_local_position_data(const nav_msgs::Odometry::ConstPtr& data);
 void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list);
 void get_home_lat_and_long(const mavros_msgs::HomePosition::ConstPtr& data);
-void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, 
-double long_y_mission_wp);
+void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, double long_y_mission_wp);
 void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data);
-void prediction_from_monitor_geo_fence();
+void prediction_geo_fence_plane();
 bool uav_in_safe_zone();
+double find_bearing(double wp_x, double wp_y);
+void xy_2latlon(double x_lat_home, double y_long_home, int wp_x, int wp_y, double bearing);
 
 //<----------------------------------------------------------------------------------------------------------------------------->
 
@@ -114,13 +117,13 @@ int main(int argc, char **argv)
     //ROS_INFO("\n\n---------------------------------Welcome--------------------------------------\n\n");
 
     // initialize ros node with a node name
-    ros::init(argc, argv, "node_monitor_geo_fence");
+    ros::init(argc, argv, "node_monitor_geo_fence_plane");
     
     // create monitor object
     monitor_geo_fence_plane obj_monitor_geo_fence_plane;
     // implement class functions
     obj_monitor_geo_fence_plane.init_parameter_server();
-    //obj_monitor_geo_fence_plane.set_monitor_topics(config, level); // main issue is here, not using same config as before
+    //obj_monitor_geo_fence_plane.dynamic_reconfigure_callback(config, level); // main issue is here, not using same config as before
     obj_monitor_geo_fence_plane.initialize_pub_and_sub();
     obj_monitor_geo_fence_plane.monitor_start();
     //ros::spin();
@@ -134,9 +137,9 @@ monitor_geo_fence_plane::monitor_geo_fence_plane() : monitor_base(){
     ROS_INFO("monitor_geo_fence_plane constructor called, object initialized\n");
 }
 
-void monitor_geo_fence_plane::set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level){
+void monitor_geo_fence_plane::dynamic_reconfigure_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level){
     
-    ROS_INFO("set_monitor_topics function reached\n");
+    ROS_INFO("dynamic_reconfigure_callback function reached\n");
     
     // for geo fence monitor
     set_topic_guidance_velocity(config.set_topic_guidance_velocity.c_str());
@@ -186,7 +189,7 @@ void monitor_geo_fence_plane::set_monitor_topics(pkg_ros_monitor::monitor_Config
     config.set_topic_corrected_velocity.c_str(), config.set_topic_waypoint_list.c_str(),
     config.set_topic_home_lat_and_long.c_str(), config.set_topic_global_position_uav.c_str());
 
-    ROS_INFO("set_monitor_topics function ended\n");
+    ROS_INFO("dynamic_reconfigure_callback function ended\n");
 }
 
 void monitor_geo_fence_plane::initialize_pub_and_sub(){
@@ -243,7 +246,7 @@ void monitor_geo_fence_plane::monitor_start(){
         //monitor_wind::initialize_pub_and_sub();
         ros::spinOnce(); // if we have subscribers in our node, but always keep for good measure
         
-        publish_final_command_geo_fence(); // keep calling this function
+        publish_final_command_geo_fence_plane(); // keep calling this function
         
         // sleep for appropriate time to hit mark of (10) Hz
         loop_rate.sleep();
@@ -396,9 +399,11 @@ void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data)
 // function to receive mission waypoints
 void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
 {
-    waypoint_old = waypoint_current;
-    waypoint_new = list -> current_seq;
-    waypoint_current = waypoint_new;
+    if(waypoint_current != list -> current_seq){
+        waypoint_old = waypoint_current;
+        waypoint_new = list -> current_seq;
+        waypoint_current = waypoint_new;
+    }
     // to store list just one time
     if(list_trigger){
         waypoint_old = waypoint_current;
@@ -410,15 +415,22 @@ void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
             array_waypoint_list[i].y_long = list -> waypoints[i].y_long;
             array_waypoint_list[i].z_alt = list -> waypoints[i].z_alt;
             
+            // populate a waypoint message to be put into table
+            message_waypoint.command = 16; // uint16 NAV_WAYPOINT = 16, # Navigate to waypoint
+            message_waypoint.param1 = 0.0; // No. of turns by UAV at wp
+            message_waypoint.param2 = 0.0;
+            message_waypoint.param3 = 0.0;
+            message_waypoint.param4 = 0.0;
+            message_waypoint.x_lat = list -> waypoints[i].x_lat;
+            message_waypoint.y_long = list -> waypoints[i].y_long;
+            message_waypoint.z_alt = list -> waypoints[i].z_alt;
+
             // populate vector to create editable wp table
-            vec_waypoint_table[i].command = 16; // uint16 NAV_WAYPOINT = 16, # Navigate to waypoint
-            vec_waypoint_table[i].param1 = 0.0; // No. of turns by UAV at wp
-            vec_waypoint_table[i].param2 = 0.0;
-            vec_waypoint_table[i].param3 = 0.0;
-            vec_waypoint_table[i].param4 = 0.0;
-            vec_waypoint_table[i].x_lat = list -> waypoints[i].x_lat;
-            vec_waypoint_table[i].y_long = list -> waypoints[i].y_long;
-            vec_waypoint_table[i].z_alt = list -> waypoints[i].z_alt;
+            if(i == 0){
+                vec_waypoint_table.insert(vec_waypoint_table.begin(), message_waypoint);
+            }else{
+                vec_waypoint_table.push_back(message_waypoint);
+            }
         }
         list_trigger = false;
     }
@@ -465,6 +477,34 @@ double y_long_mission_wp)
     wp_y = (some_parameter_d * sin(some_parameter_bearing));
 }
 
+// function to calculate variable bearing for use in function xy_2latlon
+double find_bearing(double wp_x, double wp_y)
+{
+    bearing = atan2(wp_y, wp_x);
+    std::cout<<"bearing : "<<bearing<<"\n\n";
+    return bearing;
+}
+
+// function to convert simple x y coordinates of a waypoint to lat long coordinates
+void xy_2latlon(double x_lat_home, double y_long_home, int wp_x, int wp_y, double bearing)
+{
+    x_lat_home = x_lat_home * (PI / 180); // to radians
+    y_long_home = y_long_home * (PI / 180);
+
+    some_parameter_d = sqrt((wp_x ^ 2) + (wp_y ^ 2));
+    x_to_lat = asin(sin(x_lat_home) * cos(some_parameter_d / radius_earth) + cos(x_lat_home) * sin(some_parameter_d / radius_earth)
+                * cos(find_bearing(wp_x, wp_y)));
+    y_to_long = y_long_home + atan2(sin(find_bearing(wp_x, wp_y)) * sin(some_parameter_d / radius_earth)
+                *cos(x_lat_home), cos(some_parameter_d / radius_earth) - sin(x_lat_home) * sin(x_to_lat));
+
+    x_to_lat = x_to_lat * (180 / PI); // to degrees
+    y_to_long = y_to_long * (180 / PI);
+
+    std::cout<<"wp_x : "<<wp_x<<"\n""wp_y : "<<wp_y<<"\n";
+    std::cout<<"x_to_lat (in degrees) : "<<x_to_lat<<"\n""y_to_long (in degrees)  : "<<y_to_long<<"\n";
+    std::cout<<"parameter d : "<<some_parameter_d<<"\n"<<"\n""bearing : "<<bearing<<"\n\n";
+}
+
 // check if UAV is in or out of critical radius
 bool uav_in_safe_zone()
 {   // if UAV is out of critical radius, return true
@@ -484,7 +524,7 @@ bool uav_in_safe_zone()
 }*/
 
 // function to calculate required predictions and populate "command_nav_pose" message
-void prediction_from_monitor_geo_fence()
+void prediction_geo_fence_plane()
 {
     /* APPROACH 1
     If the vehicle sways more than the threshold (set in config file) values either side,
@@ -938,21 +978,29 @@ void prediction_from_monitor_geo_fence()
         if((wp_x - array_local_position_pose_data[0] <= 25) || (wp_y - array_local_position_pose_data[1] <= 25)){
         theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
 
-            // loiter wp in gps coordinates?
-            loiter_gps_wp_x = array_global_position_uav[0] + (25 * cos(theta_plane + 1.57));
-            loiter_gps_wp_y = array_global_position_uav[1] + (25 * sin(theta_plane + 1.57)); 
-
+            // loiter wp in gps coordinates? // logic problem here
+            loiter_wp_x = array_local_position_pose_data[0] + (25 * cos(theta_plane - 1.57));
+            loiter_wp_y = array_local_position_pose_data[1] + (25 * sin(theta_plane - 1.57)); 
+            
+            ROS_INFO("Loiter wp x : %f\n""Loiter wp y : %f\n\n", loiter_wp_x, loiter_wp_y);
+            
+            find_bearing(loiter_wp_x, loiter_wp_y); // gives bearing
+            xy_2latlon(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y, bearing); // gives x_to_lat, y_to_long
+            
             // it's replacing wp instead of adding to the table,
-            // if we add, UAV will try to go tto that wp next, 
+            // if we add, UAV will try to go to that wp next, 
             // or before, depending on where we add new wp in the vector
             vec_waypoint_table[waypoint_current].command = 18; // uint16 NAV_LOITER_TURNS = 18, # Loiter around this waypoint for X turns
             vec_waypoint_table[waypoint_current].param1 = 0.0; // X no of turns
             vec_waypoint_table[waypoint_current].param2 = 0.0;
             vec_waypoint_table[waypoint_current].param3 = 0.0;
             vec_waypoint_table[waypoint_current].param4 = 0.0;
-            vec_waypoint_table[waypoint_current].x_lat = loiter_gps_wp_x;
-            vec_waypoint_table[waypoint_current].y_long = loiter_gps_wp_y;
+            vec_waypoint_table[waypoint_current].x_lat = x_to_lat;
+            vec_waypoint_table[waypoint_current].y_long = y_to_long;
             vec_waypoint_table[waypoint_current].z_alt = array_waypoint_list[waypoint_current].z_alt;
+
+            //convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y);
+            //ROS_INFO("Loiter wp x : %f\n""Loiter wp y : %f\n\n", wp_x, wp_y);
         }  
 
         // push above table to wp message
@@ -1309,15 +1357,15 @@ void prediction_from_monitor_geo_fence()
     */
    // for direction z
     command_geometry_twist.twist.linear.z = array_velocity_guidance[2];
-} // end of function prediction_from_monitor_geo_fence()
+} // end of function prediction_geo_fence_plane()
 
 // function to publish final command_geometry_twist through the publisher via this monitor
-void publish_final_command_geo_fence()
+void publish_final_command_geo_fence_plane()
 {
     //ROS_INFO("\n\n------------------------------------Data received----------------------------------------\n\n");
-
+    //ROS_INFO("start of publish_final_command_geo_fence_plane reached");
     // make prediction at set frequency
-    prediction_from_monitor_geo_fence();
+    prediction_geo_fence_plane();
     /*
     ROS_INFO("\n\nGeo fence limits set :\n\n"
     "Fence limit set in direction positive x : %f \n"
@@ -1396,4 +1444,4 @@ void publish_final_command_geo_fence()
     //ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel\".");
 
    // ROS_INFO("\n\n------------------------------------End of data block----------------------------------------\n\n");
-} // end of function publish_final_command_geo_fence()
+} // end of function publish_final_command_geo_fence_plane()

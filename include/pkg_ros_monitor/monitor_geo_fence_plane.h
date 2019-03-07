@@ -18,8 +18,8 @@ class monitor_geo_fence_plane : public monitor_base
         monitor_geo_fence_plane();
         //static monitor_geo_fence_plane& getInstance(); // get single instance of this class
         //virtual void init_parameter_server();
-        using monitor_base::set_monitor_topics;
-        virtual void set_monitor_topics(pkg_ros_monitor::monitor_Config &config, uint32_t level); // set custom topics
+        using monitor_base::dynamic_reconfigure_callback;
+        virtual void dynamic_reconfigure_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level); // set custom topics
         using monitor_base::initialize_pub_and_sub;
         virtual void initialize_pub_and_sub(); // initialize publishers and subscribers
         using monitor_base::monitor_start;

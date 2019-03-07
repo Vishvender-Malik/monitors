@@ -17,10 +17,10 @@ void monitor_base::init_parameter_server(){
     // as long as the server lives (in this case until the end of our node, the monitor node listens to reconfigure requests
     //dynamic_reconfigure::Server<pkg_ros_monitor::monitor_Config> parameter_server;
 
-    // define a variable to represent our callback object and provide it info about our callback function
+    // define a variable to represent our callback object and bind to it our callback function
     //dynamic_reconfigure::Server<pkg_ros_monitor::monitor_Config>::CallbackType callback_variable;
     //this -> set_monitor_topics(config, level);
-    callback_variable = boost::bind(&monitor_base::set_monitor_topics, this, _1, _2);
+    callback_variable = boost::bind(&monitor_base::dynamic_reconfigure_callback, this, _1, _2);
 
     // pass our callback object to parameter server
     // now when the server gets a reconfiguration request it will call our callback function
