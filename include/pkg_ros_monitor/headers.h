@@ -16,7 +16,6 @@ File : headers.h
 #include <pkg_ros_monitor/monitor_Config.h>
 #include "TargetInfo.h"
 #include "Contour.h"
-//#include "api_pkg_ros_monitor.h"
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/WaypointList.h>
 #include <mavros_msgs/Waypoint.h>

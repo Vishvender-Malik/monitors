@@ -13,8 +13,6 @@ File : monitor_geo_fence.h
 class monitor_geo_fence : public monitor_base
 {
     public:
-        //monitor_geo_fence(monitor_geo_fence const&) = delete; // for use with C++11
-        //void operator=(monitor_geo_fence const&)  = delete; // for use with C++11
         monitor_geo_fence();
         using monitor_base::dynamic_reconfigure_callback;
         virtual void dynamic_reconfigure_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level); // set custom topics
