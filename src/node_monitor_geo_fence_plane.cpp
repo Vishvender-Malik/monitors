@@ -70,7 +70,7 @@ ros::Publisher pub_corrected_velocity;
 ros::Subscriber sub_local_position_data;
 ros::Subscriber sub_current_mavros_state;
 ros::ServiceClient srv_mavros_state;
-ros::Subscriber sub_waypoint_list;
+ros::Subscriber sub_waypoint_list_plane;
 ros::Subscriber sub_home_lat_and_long;
 ros::ServiceClient srv_set_current_waypoint;
 ros::Subscriber sub_global_position_uav;
@@ -80,7 +80,7 @@ ros::ServiceClient srv_wp_push;
 
 //<------------------------------------------Local function declarations--------------------------------------------------------->
 
-void publish_final_command_geo_fence_plane();
+void monitor_logic();
 void get_guidance_controller_velocity(const geometry_msgs::TwistStamped::ConstPtr& data);
 void set_topic_guidance_velocity(std::string guidance_velocity);
 void set_max_possible_pose_in_positive_x(int config_max_possible_pose_in_positive_x);
@@ -99,7 +99,7 @@ void set_critical_radius_start_from_home(double config_critical_radius_start_fro
 void set_critical_radius_from_fence_limit(double critical_radius);
 void set_radius_of_circle_of_influence_s(double radius_of_circle_of_influence);
 void get_local_position_data(const nav_msgs::Odometry::ConstPtr& data);
-void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list);
+void get_waypoint_list_plane(const mavros_msgs::WaypointList::ConstPtr& list);
 void get_home_lat_and_long(const mavros_msgs::HomePosition::ConstPtr& data);
 void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, double long_y_mission_wp);
 void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data);
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
     obj_monitor_geo_fence_plane.init_parameter_server();
     //obj_monitor_geo_fence_plane.dynamic_reconfigure_callback(config, level); // main issue is here, not using same config as before
     obj_monitor_geo_fence_plane.initialize_pub_and_sub();
-    obj_monitor_geo_fence_plane.monitor_start();
+    obj_monitor_geo_fence_plane.monitor_init();
     //ros::spin();
     return 0;
 
@@ -201,28 +201,28 @@ void monitor_geo_fence_plane::initialize_pub_and_sub(){
     // subscriber to receive home location coordinates
     //sub_home_lat_and_long = nodeHandle.subscribe(topic_home_lat_and_long, 1000, get_home_lat_and_long);
     // final publisher to application // topic should just be cmd_vel
-    pub_corrected_velocity = nodeHandle.advertise<geometry_msgs::TwistStamped>(topic_corrected_velocity, 1000);
+    pub_corrected_velocity = m_pub_corrected_velocity;
     // publisher to publish new mavros flight state
     //pub_new_mavros_state = nodeHandle.advertise<mavros_msgs::State>(topic_new_mavros_state, 1000); 
     // subscriber to receive local position data from controller
     //sub_local_position_data = nodeHandle.subscribe(topic_local_position_data, 1000, get_local_position_data);
     // subscriber to receive velocity commands from the topic itself
-    sub_guidance_velocity = nodeHandle.subscribe(topic_guidance_velocity, 1000, get_guidance_controller_velocity);
+    sub_guidance_velocity = m_sub_guidance_velocity;
     // subscriber to get mission waypoint list
-    sub_waypoint_list = nodeHandle.subscribe(topic_waypoint_list, 1000, get_waypoint_list);
+    sub_waypoint_list_plane = m_sub_waypoint_list_plane;
     // subscriber to get global UAV position and use it as home location
-    sub_global_position_uav = nodeHandle.subscribe(topic_global_position_uav, 1000, get_global_position_uav);
+    sub_global_position_uav = m_sub_global_position_uav;
     // service to set mode of the vehicle
-    srv_mavros_state = nodeHandle.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
+    srv_mavros_state = m_srv_mavros_state;
     // service to set updated current waypoint
-    srv_set_current_waypoint = nodeHandle.serviceClient<mavros_msgs::WaypointSetCurrent>("/mavros/mission/set_current");
+    srv_set_current_waypoint = m_srv_current_waypoint;
     // service to push updated waypoints
-    srv_wp_push = nodeHandle.serviceClient<mavros_msgs::WaypointPush>("/mavros/mission/push");
+    srv_wp_push = m_srv_waypoint_push;
 
     ROS_INFO("end of initialize pub and sub function reached\n");
 }
-
-void monitor_geo_fence_plane::monitor_start(){
+/*
+void monitor_geo_fence_plane::monitor_init(){
 
     ROS_INFO("start of monitor_start function reached");
     // get single wind monitor instance
@@ -246,14 +246,14 @@ void monitor_geo_fence_plane::monitor_start(){
         //monitor_wind::initialize_pub_and_sub();
         ros::spinOnce(); // if we have subscribers in our node, but always keep for good measure
         
-        publish_final_command_geo_fence_plane(); // keep calling this function
+        monitor_logic(); // keep calling this function
         
         // sleep for appropriate time to hit mark of (10) Hz
         loop_rate.sleep();
     } // end of while loop
     ROS_INFO("end of monitor_start function reached");
 }
-
+*/
 // function to set guidance velocity topic
 void set_topic_guidance_velocity(std::string guidance_velocity)
 {
@@ -341,7 +341,7 @@ void set_topic_global_position_uav(std::string global_position_uav)
 {
     topic_global_position_uav = global_position_uav;
 }
-
+/*
 // function to receive Desired airspeed (published on to the topic) from the topic itself
 void get_guidance_controller_velocity(const geometry_msgs::TwistStamped::ConstPtr& data)
 {
@@ -349,7 +349,7 @@ void get_guidance_controller_velocity(const geometry_msgs::TwistStamped::ConstPt
     array_velocity_guidance[1] = data -> twist.linear.y;
     array_velocity_guidance[2] = data -> twist.linear.z;
     ROS_INFO("Data received from topic \"/mavros/local_position/velocity\".");
-}
+}*/
 /*
 // function to receive local position data
 void get_local_position_data(const nav_msgs::Odometry::ConstPtr &data)
@@ -360,6 +360,7 @@ void get_local_position_data(const nav_msgs::Odometry::ConstPtr &data)
     ROS_INFO("Data received from topic \"mavros/global_position/local\".");
 }
 */
+/*
 // function to receive global uav position, and also use it to set home location in lat and long
 void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data)
 {
@@ -394,10 +395,10 @@ void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data)
     location_home_lat_x, location_home_long_y, location_home_alt_z, 
     array_global_position_uav[0], array_global_position_uav[1],
     array_local_position_pose_data[0], array_local_position_pose_data[1]);
-}
-
+}*/
+/*
 // function to receive mission waypoints
-void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
+void get_waypoint_list_plane(const mavros_msgs::WaypointList::ConstPtr& list)
 {
     if(waypoint_current != list -> current_seq){
         waypoint_old = waypoint_current;
@@ -445,7 +446,7 @@ void get_waypoint_list(const mavros_msgs::WaypointList::ConstPtr& list)
     "Current waypoint : %d\n\n"
     "wp_x : %f\n""wp_y : %f\n",
     size_waypoint_list, waypoint_old, waypoint_new, waypoint_current, wp_x, wp_y);
-}
+}*/
 /*
 // function to get home location's lat and long
 void get_home_lat_and_long(const mavros_msgs::HomePosition::ConstPtr& data)
@@ -456,6 +457,7 @@ void get_home_lat_and_long(const mavros_msgs::HomePosition::ConstPtr& data)
     //ROS_INFO("%f, %f, %f", location_home_lat_x, location_home_long_y, location_home_alt_z);
 }
 */
+/*
 // function to convert lat long coordinates of a waypoint to simple x y coordinates
 void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, 
 double y_long_mission_wp)
@@ -475,21 +477,21 @@ double y_long_mission_wp)
 
     wp_x = (some_parameter_d * cos(some_parameter_bearing));
     wp_y = (some_parameter_d * sin(some_parameter_bearing));
-}
-
+}*/
+/*
 // function to calculate variable bearing for use in function xy_2latlon
 double find_bearing(double wp_x, double wp_y)
 {
     bearing = atan2(wp_y, wp_x);
     std::cout<<"bearing : "<<bearing<<"\n\n";
     return bearing;
-}
-
+}*/
+/*
 // function to convert simple x y coordinates of a waypoint to lat long coordinates
 void xy_2latlon(double x_lat_home, double y_long_home, int wp_x, int wp_y, double bearing)
 {
-    x_lat_home = x_lat_home * (PI / 180); // to radians
-    y_long_home = y_long_home * (PI / 180);
+    x_lat_home = x_lat_home * (m_pi / 180); // to radians
+    y_long_home = y_long_home * (m_pi / 180);
 
     some_parameter_d = sqrt((wp_x ^ 2) + (wp_y ^ 2));
     x_to_lat = asin(sin(x_lat_home) * cos(some_parameter_d / radius_earth) + cos(x_lat_home) * sin(some_parameter_d / radius_earth)
@@ -497,14 +499,14 @@ void xy_2latlon(double x_lat_home, double y_long_home, int wp_x, int wp_y, doubl
     y_to_long = y_long_home + atan2(sin(find_bearing(wp_x, wp_y)) * sin(some_parameter_d / radius_earth)
                 *cos(x_lat_home), cos(some_parameter_d / radius_earth) - sin(x_lat_home) * sin(x_to_lat));
 
-    x_to_lat = x_to_lat * (180 / PI); // to degrees
-    y_to_long = y_to_long * (180 / PI);
+    x_to_lat = x_to_lat * (180 / m_pi); // to degrees
+    y_to_long = y_to_long * (180 / m_pi);
 
     std::cout<<"wp_x : "<<wp_x<<"\n""wp_y : "<<wp_y<<"\n";
     std::cout<<"x_to_lat (in degrees) : "<<x_to_lat<<"\n""y_to_long (in degrees)  : "<<y_to_long<<"\n";
     std::cout<<"parameter d : "<<some_parameter_d<<"\n"<<"\n""bearing : "<<bearing<<"\n\n";
 }
-
+*/
 // check if UAV is in or out of critical radius
 bool uav_in_safe_zone()
 {   // if UAV is out of critical radius, return true
@@ -962,14 +964,14 @@ void prediction_geo_fence_plane()
     when it is, switch wp to wp + 1
     */ 
 
-    convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_old].x_lat,
+    function::convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_old].x_lat,
     array_waypoint_list[waypoint_old].y_long);
 
     old_wp_x = wp_x;
     old_wp_y = wp_y;
 
     // convert current waypoint's lat long coordinates to x y coordinates
-    convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
+    function::convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
     array_waypoint_list[waypoint_current].y_long);
     // assuming home location to be 0, 0
 
@@ -984,8 +986,8 @@ void prediction_geo_fence_plane()
             
             ROS_INFO("Loiter wp x : %f\n""Loiter wp y : %f\n\n", loiter_wp_x, loiter_wp_y);
             
-            find_bearing(loiter_wp_x, loiter_wp_y); // gives bearing
-            xy_2latlon(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y, bearing); // gives x_to_lat, y_to_long
+            function::find_bearing(loiter_wp_x, loiter_wp_y); // gives bearing
+            function::xy_2latlon(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y, bearing); // gives x_to_lat, y_to_long
             
             // it's replacing wp instead of adding to the table,
             // if we add, UAV will try to go to that wp next, 
@@ -1360,10 +1362,10 @@ void prediction_geo_fence_plane()
 } // end of function prediction_geo_fence_plane()
 
 // function to publish final command_geometry_twist through the publisher via this monitor
-void publish_final_command_geo_fence_plane()
+void monitor_geo_fence_plane::monitor_logic()
 {
     //ROS_INFO("\n\n------------------------------------Data received----------------------------------------\n\n");
-    //ROS_INFO("start of publish_final_command_geo_fence_plane reached");
+    //ROS_INFO("start of monitor_logic reached");
     // make prediction at set frequency
     prediction_geo_fence_plane();
     /*
@@ -1444,4 +1446,4 @@ void publish_final_command_geo_fence_plane()
     //ROS_INFO("Data publishing to topic \"/mavros/setpoint_velocity/cmd_vel\".");
 
    // ROS_INFO("\n\n------------------------------------End of data block----------------------------------------\n\n");
-} // end of function publish_final_command_geo_fence_plane()
+} // end of function monitor_logic()

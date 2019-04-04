@@ -9,11 +9,14 @@ File : monitor_base.h
 #define header_monitor_base
 
 #include "headers.h"
+#include "function_definitions.h"
+#include "macros.h"
 
 class monitor_base
 {
     public:
     
+    ros::NodeHandle nodeHandle;
     static pkg_ros_monitor::monitor_Config &config;
     uint32_t level;
     // define our parameter server, and pass it our configuration file information
@@ -35,7 +38,8 @@ class monitor_base
     virtual void initialize_pub_and_sub() = 0; 
     // start the monitor,
     // will contain monitor logic or a call to logic function
-    virtual void monitor_start() = 0; // "= 0" makes it a pure virtual function, and the class abstract
+    void monitor_init(); // "= 0" makes it a pure virtual function, and the class abstract
+    virtual void monitor_logic() = 0;
         
 }; // end of class monitor_base
 

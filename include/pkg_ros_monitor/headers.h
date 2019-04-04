@@ -3,6 +3,9 @@ Email : vishvenderm@iiitd.ac.in
 File : headers.h
 */
 
+#ifndef header_headers
+#define header_headers
+
 #include <iostream>
 #include <string>
 #include <cmath>
@@ -25,4 +28,5 @@ File : headers.h
 #include <mavros_msgs/WaypointSetCurrent.h>
 #include <mavros_msgs/WaypointPush.h>
 #include <sensor_msgs/NavSatFix.h>
-#define PI 3.14159265
+
+#endif

@@ -31,6 +31,38 @@ void monitor_base::init_parameter_server(){
     ROS_INFO("init_parameter_server function ended\n");
 }
 
+void monitor_base::monitor_init(){
+
+    ROS_INFO("start of monitor_init function reached");
+    // get single wind monitor instance
+    //monitor_wind::getInstance().initialize_pub_and_sub();
+    //ROS_INFO("monitor_wind::getInstance function executed");
+    //monitor_wind::initialize_pub_and_sub();
+
+    //run loop at (10) Hz (always in decimal and faster than what is published through guidance controller)
+    ros::Rate loop_rate(1.00);
+    
+    // Use current time as seed for random generator 
+    srand(time(0)); 
+
+    while (ros::ok())
+    {
+        // keep calling parameter server callback function to check for changes in parameters
+        // kind of redundant to keep calling it since the parameters are set the first time it is called before
+        // but here it is called to display ROS_INFO about the parameters, otherwise ROS_INFO is displayed only once in the 
+        // beginning of the output
+        //parameter_server.setCallback(callback_variable); 
+        //monitor_wind::initialize_pub_and_sub();
+        ros::spinOnce(); // if we have subscribers in our node, but always keep for good measure
+        
+        this -> monitor_logic(); // keep calling this function
+        
+        // sleep for appropriate time to hit mark of (10) Hz
+        loop_rate.sleep();
+    } // end of while loop
+    ROS_INFO("end of monitor_init function reached");
+}
+
 monitor_base::~monitor_base()
 {
     ROS_INFO("monitor_base destructor called\n");

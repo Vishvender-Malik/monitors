@@ -20,8 +20,7 @@ class monitor_geo_fence : public monitor_base
         virtual void dynamic_reconfigure_callback(pkg_ros_monitor::monitor_Config &config, uint32_t level); // set custom topics
         using monitor_base::initialize_pub_and_sub;
         virtual void initialize_pub_and_sub(); // initialize publishers and subscribers
-        using monitor_base::monitor_start;
-        virtual void monitor_start();
+        virtual void monitor_logic();
 }; // end of class monitor_geo_fence
 
 #endif
