@@ -103,7 +103,7 @@ void get_waypoint_list_plane(const mavros_msgs::WaypointList::ConstPtr& list);
 void get_home_lat_and_long(const mavros_msgs::HomePosition::ConstPtr& data);
 void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, double long_y_mission_wp);
 void get_global_position_uav(const sensor_msgs::NavSatFix::ConstPtr& data);
-void prediction_geo_fence_plane();
+void prediction_geo_fence_plane(std::vector<mavros_msgs::Waypoint>& vec_waypoint_table);
 bool uav_in_safe_zone();
 double find_bearing(double wp_x, double wp_y);
 void xy_2latlon(double x_lat_home, double y_long_home, int wp_x, int wp_y, double bearing);
@@ -526,7 +526,7 @@ bool uav_in_safe_zone()
 }*/
 
 // function to calculate required predictions and populate "command_nav_pose" message
-void prediction_geo_fence_plane()
+void prediction_geo_fence_plane(std::vector<mavros_msgs::Waypoint>& vec_waypoint_table)
 {
     /* APPROACH 1
     If the vehicle sways more than the threshold (set in config file) values either side,
@@ -974,12 +974,16 @@ void prediction_geo_fence_plane()
     function::convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
     array_waypoint_list[waypoint_current].y_long);
     // assuming home location to be 0, 0
+    
+    if(abs(fence_limit_to_consider_in_x) - abs(wp_x) <= 100 || abs(fence_limit_to_consider_in_y) - abs(wp_y) <= 100){
+        ROS_INFO("Entered logic if\n\n");
 
-    if(abs(fence_limit_to_consider_in_x) - abs(wp_x) <= 25 || abs(fence_limit_to_consider_in_y) - abs(wp_y) <= 25){
-
-        if((wp_x - array_local_position_pose_data[0] <= 25) || (wp_y - array_local_position_pose_data[1] <= 25)){
+        if((abs(wp_x) - abs(array_local_position_pose_data[0]) <= 25) || (abs(wp_y) - abs(array_local_position_pose_data[1]) <= 25)){
         theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
-
+            ROS_INFO("Entered logic inner if\n\n");
+            ROS_INFO("wp_x - array_local_position_pose_data[0] : %f\n\n", (wp_x - array_local_position_pose_data[0]));
+            ROS_INFO("wp_y - array_local_position_pose_data[1] : %f\n\n", (wp_y - array_local_position_pose_data[1]));
+            
             // loiter wp in gps coordinates? // logic problem here
             loiter_wp_x = array_local_position_pose_data[0] + (25 * cos(theta_plane - 1.57));
             loiter_wp_y = array_local_position_pose_data[1] + (25 * sin(theta_plane - 1.57)); 
@@ -988,7 +992,7 @@ void prediction_geo_fence_plane()
             
             function::find_bearing(loiter_wp_x, loiter_wp_y); // gives bearing
             function::xy_2latlon(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y, bearing); // gives x_to_lat, y_to_long
-            
+            ROS_INFO("Reached just after function xy_2latlon\n\n");
             // it's replacing wp instead of adding to the table,
             // if we add, UAV will try to go to that wp next, 
             // or before, depending on where we add new wp in the vector
@@ -1000,12 +1004,16 @@ void prediction_geo_fence_plane()
             vec_waypoint_table[waypoint_current].x_lat = x_to_lat;
             vec_waypoint_table[waypoint_current].y_long = y_to_long;
             vec_waypoint_table[waypoint_current].z_alt = array_waypoint_list[waypoint_current].z_alt;
-
+            ROS_INFO("Reached just after message_waypoint creation\n\n");
+            //Replace wp at position waypoint_current
+            ROS_INFO("Before message_waypoint replacement\n\n");
+            //vec_waypoint_table[waypoint_current] = message_waypoint; //this is the problem
+            ROS_INFO("Reached just after message_waypoint replacement\n\n");
             //convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y);
             //ROS_INFO("Loiter wp x : %f\n""Loiter wp y : %f\n\n", wp_x, wp_y);
         }  
-
-        // push above table to wp message
+        ROS_INFO("Outside inner if now\n\n");
+        // push updated table to wp message
         command_waypoint_push.request.waypoints = vec_waypoint_table;
         // call push service with above message
         if(srv_wp_push.call(command_waypoint_push)){
@@ -1367,7 +1375,7 @@ void monitor_geo_fence_plane::monitor_logic()
     //ROS_INFO("\n\n------------------------------------Data received----------------------------------------\n\n");
     //ROS_INFO("start of monitor_logic reached");
     // make prediction at set frequency
-    prediction_geo_fence_plane();
+    prediction_geo_fence_plane(vec_waypoint_table);
     /*
     ROS_INFO("\n\nGeo fence limits set :\n\n"
     "Fence limit set in direction positive x : %f \n"

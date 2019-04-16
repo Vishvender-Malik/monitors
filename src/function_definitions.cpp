@@ -83,8 +83,8 @@ namespace function{
         array_global_position_uav[1]);
         // assuming home location to be 0, 0
 
-        array_local_position_pose_data[0] = wp_x;
-        array_local_position_pose_data[1] = wp_y;
+        array_local_position_pose_data[0] = wp_x / 100;
+        array_local_position_pose_data[1] = wp_y / 100;
         //array_local_position_pose_data[2] = data -> altitude;
 
         ROS_INFO("Data received from topic \"mavros/global_position/global\".\n");
@@ -174,13 +174,14 @@ namespace function{
                 message_waypoint.x_lat = list -> waypoints[i].x_lat;
                 message_waypoint.y_long = list -> waypoints[i].y_long;
                 message_waypoint.z_alt = list -> waypoints[i].z_alt;
-
+                /*
                 // populate vector to create editable wp table
                 if(i == 0){
-                    vec_waypoint_table.insert(vec_waypoint_table.begin(), message_waypoint);
+                    //vec_waypoint_table.insert(vec_waypoint_table.begin(), message_waypoint);
                 }else{
                     vec_waypoint_table.push_back(message_waypoint);
-                }
+                }*/
+                vec_waypoint_table.push_back(message_waypoint);
             }
             list_trigger = false;
         }
@@ -211,17 +212,19 @@ namespace function{
         x_lat_home = x_lat_home * (m_pi / 180); // to radians
         y_long_home = y_long_home * (m_pi / 180);
 
-        some_parameter_d = sqrt((wp_x ^ 2) + (wp_y ^ 2));
+        std::cout<<"x_lat_home : "<<x_lat_home<<"\n""y_long_home : "<<y_long_home<<"\n";        
+        
+        some_parameter_d = sqrt(pow(wp_x, 2) + pow(wp_y, 2));
         x_to_lat = asin(sin(x_lat_home) * cos(some_parameter_d / m_radius_earth) + cos(x_lat_home) * sin(some_parameter_d / m_radius_earth)
                     * cos(find_bearing(wp_x, wp_y)));
         y_to_long = y_long_home + atan2(sin(find_bearing(wp_x, wp_y)) * sin(some_parameter_d / m_radius_earth)
                     *cos(x_lat_home), cos(some_parameter_d / m_radius_earth) - sin(x_lat_home) * sin(x_to_lat));
 
-        x_to_lat = x_to_lat * (180 / m_pi); // to degrees
-        y_to_long = y_to_long * (180 / m_pi);
+        x_to_lat = abs(x_to_lat * (180 / m_pi)); // to degrees
+        y_to_long = abs(y_to_long * (180 / m_pi));
 
         std::cout<<"wp_x : "<<wp_x<<"\n""wp_y : "<<wp_y<<"\n";
         std::cout<<"x_to_lat (in degrees) : "<<x_to_lat<<"\n""y_to_long (in degrees)  : "<<y_to_long<<"\n";
-        std::cout<<"parameter d : "<<some_parameter_d<<"\n"<<"\n""bearing : "<<bearing<<"\n\n";
+        std::cout<<"parameter d : "<<some_parameter_d<<"\n"<<"\n""bearing : "<<function::bearing<<"\n\n";
     }
 } // end of namespace function
