@@ -12,9 +12,15 @@ File : macros.h
 #include "function_definitions.h"
 
 #define m_pi 3.14159265
+#define m_radius_of_earth 6371
 #define m_radius_earth 6371000
 #define m_queue_sub 1000
 #define m_queue_pub 1000
+#define m_array_velocity_guidance_size 3
+#define m_array_local_position_pose_data_size 3
+#define m_monitor_geo_fence_triggered_size 3
+#define m_array_waypoint_list_size 100
+#define m_array_global_position_uav_size 3
 
 //*****************COMMON SUBSCRIBERS*******************
 #define m_sub_guidance_velocity nodeHandle.subscribe(topic_guidance_velocity, m_queue_sub, function::get_guidance_controller_velocity)

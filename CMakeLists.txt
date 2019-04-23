@@ -99,8 +99,10 @@ include_directories(
 
 
 add_executable(node_pkg_ros_monitor src/node_pkg_ros_monitor.cpp)#file with a main function
-add_executable(node_monitor_geo_fence_plane src/node_monitor_geo_fence_plane.cpp src/monitor_base.cpp src/function_definitions.cpp)#file with a main function
-add_executable(node_monitor_geo_fence src/node_monitor_geo_fence.cpp src/monitor_base.cpp src/function_definitions.cpp)#file with a main function
+add_executable(node_monitor_geo_fence_plane src/node_monitor_geo_fence_plane.cpp src/monitor_base.cpp src/function_definitions.cpp
+src/variables.cpp)#file with a main function
+add_executable(node_monitor_geo_fence src/node_monitor_geo_fence.cpp src/monitor_base.cpp src/function_definitions.cpp
+src/variables.cpp)#file with a main function
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

@@ -7,6 +7,7 @@ File : function_definitions.h
 #define header_function_definitions
 
 #include "headers.h"
+#include "variables.h"
 
 namespace function{
     void get_guidance_controller_velocity(const geometry_msgs::TwistStamped::ConstPtr& data);
