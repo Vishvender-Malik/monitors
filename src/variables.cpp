@@ -42,7 +42,7 @@ File : variables.cpp
     loiter_wp_x, loiter_wp_y, bearing, x_to_lat, y_to_long, abs_diff_x, abs_diff_y;
 
     int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current, waypoint_old, waypoint_new,
-    service_flag = 0;
+    service_flag = 0, loiter_flag = 0;
 
     std::vector<float> vec_wp_lat;
     std::vector<float> vec_wp_long;

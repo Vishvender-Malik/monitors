@@ -907,7 +907,8 @@ void prediction_geo_fence_plane()
         //ROS_INFO("Entered logic if\n\n");
         ROS_INFO("**************************************************************************************************");
         if((abs(wp_x) - abs(array_local_position_pose_data[0]) <= 25) || (abs(wp_y) - abs(array_local_position_pose_data[1])) <= 25){
-        theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
+            
+            theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
             //ROS_INFO("Entered logic inner if\n\n");
             abs_diff_x = abs(wp_x) - abs(array_local_position_pose_data[0]);
             abs_diff_y = abs(wp_y) - abs(array_local_position_pose_data[1]);
@@ -938,7 +939,6 @@ void prediction_geo_fence_plane()
             //Replace wp at position waypoint_current
             //ROS_INFO("Before message_waypoint replacement\n\n");
 
-
             //---------------------------------------------------------------------------------------------------------------------
             //vec_waypoint_table[waypoint_current] = message_waypoint; //this is the problem
             //---------------------------------------------------------------------------------------------------------------------
@@ -956,13 +956,46 @@ void prediction_geo_fence_plane()
             command_waypoint_push.request.waypoints = vec_waypoint_table;
             //command_waypoint_push.request.waypoints = array_waypoints_plane;
             // call push service with above message
-            if(srv_wp_push.call(command_waypoint_push)){
-                ROS_INFO("Service waypoint push called successfully\n");
-            } 
-            else {
-                ROS_ERROR("Service waypoint push call failed\n");
-            }
-            service_flag = 1;
+
+            // if loiter point not set for the first time
+            if(loiter_flag == 0){
+                if(srv_wp_push.call(command_waypoint_push)){
+                    ROS_INFO("Service waypoint push called successfully\n");
+                    loiter_flag = 1;
+                } 
+                else {
+                    ROS_ERROR("Service waypoint push call failed\n");
+                }
+            }// end of outer if
+
+            // if loiter point set already
+            if(loiter_flag == 1){
+                if((abs(wp_x) - abs(array_local_position_pose_data[0]) >= 25) && (abs(wp_y) - abs(array_local_position_pose_data[1])) >= 25){
+                    
+                    loiter_flag = 0;
+                    service_flag = 1;
+                    
+                    abs_diff_x = abs(wp_x) - abs(array_local_position_pose_data[0]);
+                    abs_diff_y = abs(wp_y) - abs(array_local_position_pose_data[1]);
+                    ROS_INFO("abs(wp_x) - abs(array_local_position_pose_data[0]) : %f\n\n", abs_diff_x);
+                    ROS_INFO("abs(wp_y) - abs(array_local_position_pose_data[1]) : %f\n\n", abs_diff_y);
+                    
+                    waypoint_current = waypoint_current + 1;
+
+                    command_waypoint_set_current.request.wp_seq = waypoint_current;
+                    ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+                    
+                    if(srv_set_current_waypoint.call(command_waypoint_set_current)){
+                        ROS_INFO("Waypoint increase service called successfully\n");
+                    } 
+                    else {
+                        ROS_INFO("Service call failed\n");
+                    }
+                    
+                    ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
+                }// end of inner if
+            }// end of outer if
+
         } // end of inner if 
 
         if(service_flag == 0){

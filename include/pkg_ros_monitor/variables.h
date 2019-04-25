@@ -49,7 +49,7 @@ wp_y, array_global_position_uav[array_global_position_uav_size], theta_plane, ol
 loiter_wp_x, loiter_wp_y, bearing, x_to_lat, y_to_long, abs_diff_x, abs_diff_y;
 
 extern int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current, waypoint_old, waypoint_new,
-service_flag;;
+service_flag, loiter_flag;
 
 extern std::vector<float> vec_wp_lat;
 extern std::vector<float> vec_wp_long;
