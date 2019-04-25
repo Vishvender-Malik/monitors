@@ -904,13 +904,15 @@ void prediction_geo_fence_plane()
     // assuming home location to be 0, 0
     
     if(abs(fence_limit_to_consider_in_x) - abs(wp_x) <= 100 || abs(fence_limit_to_consider_in_y) - abs(wp_y) <= 100){
-        ROS_INFO("Entered logic if\n\n");
-
-        if((abs(wp_x) - abs(array_local_position_pose_data[0]) <= 25) || (abs(wp_y) - abs(array_local_position_pose_data[1]) <= 25)){
+        //ROS_INFO("Entered logic if\n\n");
+        ROS_INFO("**************************************************************************************************");
+        if((abs(wp_x) - abs(array_local_position_pose_data[0]) <= 25) || (abs(wp_y) - abs(array_local_position_pose_data[1])) <= 25){
         theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
-            ROS_INFO("Entered logic inner if\n\n");
-            ROS_INFO("wp_x - array_local_position_pose_data[0] : %f\n\n", (wp_x - array_local_position_pose_data[0]));
-            ROS_INFO("wp_y - array_local_position_pose_data[1] : %f\n\n", (wp_y - array_local_position_pose_data[1]));
+            //ROS_INFO("Entered logic inner if\n\n");
+            abs_diff_x = abs(wp_x) - abs(array_local_position_pose_data[0]);
+            abs_diff_y = abs(wp_y) - abs(array_local_position_pose_data[1]);
+            ROS_INFO("abs(wp_x) - abs(array_local_position_pose_data[0]) : %f\n\n", abs_diff_x);
+            ROS_INFO("abs(wp_y) - abs(array_local_position_pose_data[1]) : %f\n\n", abs_diff_y);
             
             // loiter wp in gps coordinates? // logic problem here
             loiter_wp_x = array_local_position_pose_data[0] + (25 * cos(theta_plane - 1.57));
@@ -920,21 +922,21 @@ void prediction_geo_fence_plane()
             
             function::find_bearing(loiter_wp_x, loiter_wp_y); // gives bearing
             function::xy_2latlon(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y, bearing); // gives x_to_lat, y_to_long
-            ROS_INFO("Reached just after function xy_2latlon\n\n");
+            //ROS_INFO("Reached just after function xy_2latlon\n\n");
             // it's replacing wp instead of adding to the table,
             // if we add, UAV will try to go to that wp next, 
             // or before, depending on where we add new wp in the vector
             message_waypoint.command = 18; // uint16 NAV_LOITER_TURNS = 18, # Loiter around this waypoint for X turns
-            message_waypoint.param1 = 0.0; // X no of turns
+            message_waypoint.param1 = 1.0; // X no of turns
             message_waypoint.param2 = 0.0;
             message_waypoint.param3 = 0.0;
             message_waypoint.param4 = 0.0;
             message_waypoint.x_lat = x_to_lat;
             message_waypoint.y_long = y_to_long;
             message_waypoint.z_alt = array_waypoint_list[waypoint_current].z_alt;
-            ROS_INFO("Reached just after message_waypoint creation\n\n");
+            //ROS_INFO("Reached just after message_waypoint creation\n\n");
             //Replace wp at position waypoint_current
-            ROS_INFO("Before message_waypoint replacement\n\n");
+            //ROS_INFO("Before message_waypoint replacement\n\n");
 
 
             //---------------------------------------------------------------------------------------------------------------------
@@ -943,24 +945,33 @@ void prediction_geo_fence_plane()
             array_waypoints_plane[waypoint_current] = message_waypoint;
             //vec_waypoint_table.at(waypoint_current) = message_waypoint;
 
-            ROS_INFO("Reached just after message_waypoint replacement\n\n");
+            //ROS_INFO("Reached just after message_waypoint replacement\n\n");
             //convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y);
             //ROS_INFO("Loiter wp x : %f\n""Loiter wp y : %f\n\n", wp_x, wp_y);
-        }  
-        for(int i = 0; i < sizeof(array_waypoints_plane) / sizeof(*array_waypoints_plane); i++){
-            vec_waypoint_table.push_back(array_waypoints_plane[i]);
+            for(int i = 0; i < sizeof(array_waypoints_plane) / sizeof(*array_waypoints_plane); i++){
+                vec_waypoint_table.push_back(array_waypoints_plane[i]);
+            }
+            //ROS_INFO("Outside inner if now\n\n");
+            // push updated table to wp message
+            command_waypoint_push.request.waypoints = vec_waypoint_table;
+            //command_waypoint_push.request.waypoints = array_waypoints_plane;
+            // call push service with above message
+            if(srv_wp_push.call(command_waypoint_push)){
+                ROS_INFO("Service waypoint push called successfully\n");
+            } 
+            else {
+                ROS_ERROR("Service waypoint push call failed\n");
+            }
+            service_flag = 1;
+        } // end of inner if 
+
+        if(service_flag == 0){
+            ROS_INFO("Service NOT called yet.");
         }
-        ROS_INFO("Outside inner if now\n\n");
-        // push updated table to wp message
-        command_waypoint_push.request.waypoints = vec_waypoint_table;
-        //command_waypoint_push.request.waypoints = array_waypoints_plane;
-        // call push service with above message
-        if(srv_wp_push.call(command_waypoint_push)){
-            ROS_INFO("Service waypoint push called successfully\n");
-        } 
-        else {
-            ROS_ERROR("Service waypoint push call failed\n");
+        else if(service_flag == 1){
+            service_flag = 0;
         }
+        ROS_INFO("**************************************************************************************************");
     // do we really need to check again if UAV is 25m from now skipped wp? will loiter mode convert to AUTO on it's own when next
     // wp is updated? because checking again is quite tricky considering refresh rate of monitor
     } // end of outer if

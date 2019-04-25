@@ -35,8 +35,8 @@ namespace function{
         array_global_position_uav[1]);
         // assuming home location to be 0, 0
 
-        array_local_position_pose_data[0] = wp_x / 100;
-        array_local_position_pose_data[1] = wp_y / 100;
+        array_local_position_pose_data[0] = wp_x;
+        array_local_position_pose_data[1] = wp_y;
         //array_local_position_pose_data[2] = data -> altitude;
 
         ROS_INFO("Data received from topic \"mavros/global_position/global\".\n");

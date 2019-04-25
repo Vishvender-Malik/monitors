@@ -39,9 +39,10 @@ File : variables.cpp
     some_parameter_a, some_parameter_c, some_parameter_d, some_parameter_y, some_parameter_x, some_parameter_bearing,
     waypoint_current_lat, waypoint_current_long, location_home_lat_x, location_home_long_y, location_home_alt_z, wp_x = 0.0, 
     wp_y = 0.0, array_global_position_uav[array_global_position_uav_size] = {0.0}, theta_plane, old_wp_x, old_wp_y,
-    loiter_wp_x, loiter_wp_y, bearing, x_to_lat, y_to_long;
+    loiter_wp_x, loiter_wp_y, bearing, x_to_lat, y_to_long, abs_diff_x, abs_diff_y;
 
-    int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current, waypoint_old, waypoint_new;
+    int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current, waypoint_old, waypoint_new,
+    service_flag = 0;
 
     std::vector<float> vec_wp_lat;
     std::vector<float> vec_wp_long;
