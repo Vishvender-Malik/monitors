@@ -893,14 +893,14 @@ void prediction_geo_fence_plane()
     */ 
 
     function::convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_old].x_lat,
-    array_waypoint_list[waypoint_old].y_long);
+    array_waypoint_list[waypoint_old].y_long, array_wp, array_wp_size);
 
     old_wp_x = wp_x;
     old_wp_y = wp_y;
 
     // convert current waypoint's lat long coordinates to x y coordinates
     function::convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
-    array_waypoint_list[waypoint_current].y_long);
+    array_waypoint_list[waypoint_current].y_long, array_wp, array_wp_size);
     // assuming home location to be 0, 0
     
     if(abs(fence_limit_to_consider_in_x) - abs(wp_x) <= 100 || abs(fence_limit_to_consider_in_y) - abs(wp_y) <= 100){
@@ -909,7 +909,7 @@ void prediction_geo_fence_plane()
         if((abs(wp_x) - abs(array_local_position_pose_data[0]) <= 25) || (abs(wp_y) - abs(array_local_position_pose_data[1])) <= 25){
             
             theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
-            //ROS_INFO("Entered logic inner if\n\n");
+            ROS_INFO("Entered logic inner if, fence about to be breached\n\n");
             abs_diff_x = abs(wp_x) - abs(array_local_position_pose_data[0]);
             abs_diff_y = abs(wp_y) - abs(array_local_position_pose_data[1]);
             ROS_INFO("abs(wp_x) - abs(array_local_position_pose_data[0]) : %f\n\n", abs_diff_x);
@@ -997,14 +997,14 @@ void prediction_geo_fence_plane()
             }// end of outer if
 
         } // end of inner if 
-
+        /*
         if(service_flag == 0){
             ROS_INFO("Service NOT called yet.");
         }
         else if(service_flag == 1){
             service_flag = 0;
-        }
-        ROS_INFO("**************************************************************************************************");
+        }*/
+        //ROS_INFO("**************************************************************************************************");
     // do we really need to check again if UAV is 25m from now skipped wp? will loiter mode convert to AUTO on it's own when next
     // wp is updated? because checking again is quite tricky considering refresh rate of monitor
     } // end of outer if

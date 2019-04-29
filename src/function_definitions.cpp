@@ -32,14 +32,15 @@ namespace function{
 
         // convert current waypoint's lat long coordinates to x y coordinates
         convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_global_position_uav[0],
-        array_global_position_uav[1]);
+        array_global_position_uav[1], array_wp, array_wp_size);
         // assuming home location to be 0, 0
 
         array_local_position_pose_data[0] = wp_x;
         array_local_position_pose_data[1] = wp_y;
         //array_local_position_pose_data[2] = data -> altitude;
 
-        ROS_INFO("Data received from topic \"mavros/global_position/global\".\n");
+        //ROS_INFO("Data received from topic \"mavros/global_position/global\".\n");
+        /*
         ROS_INFO("\nlocation_home_lat_x : %f\n"
         "location_home_long_y : %f\n"
         "location_home_alt_z : %f\n"
@@ -50,6 +51,7 @@ namespace function{
         location_home_lat_x, location_home_long_y, location_home_alt_z, 
         array_global_position_uav[0], array_global_position_uav[1],
         array_local_position_pose_data[0], array_local_position_pose_data[1]);
+        */
     }
 
     // function to receive mission waypoints
@@ -69,7 +71,7 @@ namespace function{
         }
         // convert current waypoint's lat long coordinates to x y coordinates
         convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
-        array_waypoint_list[waypoint_current].y_long);
+        array_waypoint_list[waypoint_current].y_long, array_wp, array_wp_size);
         // assuming home location to be 0, 0
         ROS_INFO("Data received from topic \"/mavros/mission/waypoints\".");
         ROS_INFO("No. of waypoints received : %d\n"
@@ -78,8 +80,9 @@ namespace function{
         size_waypoint_list, waypoint_current, wp_x, wp_y);
     }
 
-    void convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, 
-    double y_long_mission_wp)
+    // function to calculate equivalent x, y points from lat long coordinates of a wp
+    double convert_lat_long_to_x_y(double x_lat_home, double y_long_home, double x_lat_mission_wp, 
+    double y_long_mission_wp, double array_wp[], const int array_wp_size)
     {
         diff_in_lat = x_lat_mission_wp - x_lat_home;
         diff_in_long = y_long_mission_wp - y_long_home;
@@ -96,6 +99,11 @@ namespace function{
 
         wp_x = (some_parameter_d * cos(some_parameter_bearing));
         wp_y = (some_parameter_d * sin(some_parameter_bearing));
+
+        array_wp[0] = (some_parameter_d * cos(some_parameter_bearing));
+        array_wp[1] = (some_parameter_d * sin(some_parameter_bearing));
+
+        return *array_wp;
     }
 
     // function to receive mission waypoints
@@ -140,7 +148,7 @@ namespace function{
         }
         // convert current waypoint's lat long coordinates to x y coordinates
         convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
-        array_waypoint_list[waypoint_current].y_long);
+        array_waypoint_list[waypoint_current].y_long, array_wp, array_wp_size);
         // assuming home location to be 0, 0
         ROS_INFO("Data received from topic \"/mavros/mission/waypoints\".");
         ROS_INFO("No. of waypoints received : %d\n"
@@ -155,7 +163,7 @@ namespace function{
     double find_bearing(double wp_x, double wp_y)
     {
         bearing = atan2(wp_y, wp_x);
-        std::cout<<"bearing : "<<bearing<<"\n\n";
+        //std::cout<<"bearing : "<<bearing<<"\n\n";
         return bearing;
     }
 
@@ -175,9 +183,10 @@ namespace function{
 
         x_to_lat = abs(x_to_lat * (180 / m_pi)); // to degrees
         y_to_long = abs(y_to_long * (180 / m_pi));
-
+        /*
         std::cout<<"wp_x : "<<wp_x<<"\n""wp_y : "<<wp_y<<"\n";
         std::cout<<"x_to_lat (in degrees) : "<<x_to_lat<<"\n""y_to_long (in degrees)  : "<<y_to_long<<"\n";
         std::cout<<"parameter d : "<<some_parameter_d<<"\n"<<"\n""bearing : "<<bearing<<"\n\n";
+        */
     }
 } // end of namespace function

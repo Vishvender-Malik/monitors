@@ -30,7 +30,7 @@ struct waypoint{
 // same here as structs
 static const int array_velocity_guidance_size = 3, array_local_position_pose_data_size = 3, monitor_geo_fence_triggered_size = 3,
 array_waypoint_list_size = 100, radius_of_earth = 6371, array_global_position_uav_size = 3, radius_earth = 6371000,
-array_waypoints_plane_size = 200;
+array_waypoints_plane_size = 200, array_wp_size = 2;
 
 extern std::string array_monitor_geo_fence_triggered[monitor_geo_fence_triggered_size]; // for geo fence monitor
 
@@ -46,7 +46,7 @@ x_lat_home, y_long_home, x_lat_mission_wp, y_long_mission_wp, diff_in_lat, diff_
 some_parameter_a, some_parameter_c, some_parameter_d, some_parameter_y, some_parameter_x, some_parameter_bearing,
 waypoint_current_lat, waypoint_current_long, location_home_lat_x, location_home_long_y, location_home_alt_z, wp_x, 
 wp_y, array_global_position_uav[array_global_position_uav_size], theta_plane, old_wp_x, old_wp_y,
-loiter_wp_x, loiter_wp_y, bearing, x_to_lat, y_to_long, abs_diff_x, abs_diff_y;
+loiter_wp_x, loiter_wp_y, bearing, x_to_lat, y_to_long, abs_diff_x, abs_diff_y, array_wp[array_wp_size];
 
 extern int sign_vehicle_pose_x, sign_vehicle_pose_y, sign_vehicle_pose_z, size_waypoint_list, waypoint_current, waypoint_old, waypoint_new,
 service_flag, loiter_flag;

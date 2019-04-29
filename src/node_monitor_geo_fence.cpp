@@ -835,7 +835,7 @@ void prediction_from_monitor_geo_fence()
         while(abs(wp_x) > abs(fence_limit_to_consider_in_x) || abs(wp_y) > abs(fence_limit_to_consider_in_y)){
             // convert current waypoint's lat long coordinates to x y coordinates
             function::convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, array_waypoint_list[waypoint_current].x_lat,
-            array_waypoint_list[waypoint_current].y_long);
+            array_waypoint_list[waypoint_current].y_long, array_wp, array_wp_size);
             // assuming home location to be 0, 0
             if(abs(wp_x) < abs(fence_limit_to_consider_in_x) && abs(wp_y) < abs(fence_limit_to_consider_in_y)){
                 break; // do nothing
