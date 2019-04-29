@@ -30,7 +30,7 @@ struct waypoint{
 // same here as structs
 static const int array_velocity_guidance_size = 3, array_local_position_pose_data_size = 3, monitor_geo_fence_triggered_size = 3,
 array_waypoint_list_size = 100, radius_of_earth = 6371, array_global_position_uav_size = 3, radius_earth = 6371000,
-array_waypoints_plane_size = 10, array_wp_size = 2;
+array_waypoints_plane_size = 6, array_wp_size = 2;
 
 extern std::string array_monitor_geo_fence_triggered[monitor_geo_fence_triggered_size]; // for geo fence monitor
 

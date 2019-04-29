@@ -931,13 +931,16 @@ void prediction_geo_fence_plane()
             message_waypoint.command = 18; // uint16 NAV_LOITER_TURNS = 18, # Loiter around this waypoint for X turns
             message_waypoint.is_current = true;
             message_waypoint.autocontinue = true;
-            message_waypoint.param1 = 1.0; // X no of turns
+            message_waypoint.param1 = 2.0; // X no of turns
             message_waypoint.param2 = 0.0;
             message_waypoint.param3 = 0.0;
             message_waypoint.param4 = 0.0;
             message_waypoint.x_lat = x_to_lat;
             message_waypoint.y_long = y_to_long;
             message_waypoint.z_alt = array_waypoint_list[waypoint_current].z_alt;
+
+            //waypoint_current = waypoint_current + 1;
+
             //ROS_INFO("Reached just after message_waypoint creation\n\n");
             //Replace wp at position waypoint_current
             //ROS_INFO("Before message_waypoint replacement\n\n");
@@ -952,8 +955,15 @@ void prediction_geo_fence_plane()
             //convert_lat_long_to_x_y(location_home_lat_x, location_home_long_y, loiter_wp_x, loiter_wp_y);
             //ROS_INFO("Loiter wp x : %f\n""Loiter wp y : %f\n\n", wp_x, wp_y);
             for(int i = 0; i < sizeof(array_waypoints_plane) / sizeof(*array_waypoints_plane); i++){
-                vec_waypoint_table.push_back(array_waypoints_plane[i]);
-                ROS_INFO("parameter command : %d \n", vec_waypoint_table[i].command);
+                if(i == 0){
+                    vec_waypoint_table.insert(vec_waypoint_table.begin(), array_waypoints_plane[i]);
+                }else{
+                    vec_waypoint_table.push_back(array_waypoints_plane[i]);
+                }
+                ROS_INFO("parameter command vector : %d \n", vec_waypoint_table[i].command);
+                ROS_INFO("parameter command array : %d \n", array_waypoints_plane[i].command);
+
+//                ROS_INFO("Size of vector %d", vec_waypoint_table.size());
             }
             //ROS_INFO("Outside inner if now\n\n");
             // push updated table to wp message
@@ -966,10 +976,22 @@ void prediction_geo_fence_plane()
                 if(srv_wp_push.call(command_waypoint_push)){
                     ROS_INFO("Service waypoint push called successfully\n");
                     loiter_flag = 1;
+                    vec_waypoint_table.clear();
                 } 
                 else {
                     ROS_ERROR("Service waypoint push call failed\n");
                 }
+
+                command_waypoint_set_current.request.wp_seq = waypoint_current;
+                ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
+                
+                if(srv_set_current_waypoint.call(command_waypoint_set_current)){
+                    ROS_INFO("Bundchod\n");
+                } 
+                else {
+                    ROS_INFO("Service call failed\n");
+                }            
+
             }// end of outer if
             /*
             // if loiter point set already
