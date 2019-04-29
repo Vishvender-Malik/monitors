@@ -126,7 +126,10 @@ namespace function{
                 array_waypoint_list[i].z_alt = list -> waypoints[i].z_alt;
                 
                 // populate a waypoint message to be put into table
-                message_waypoint.command = 16; // uint16 NAV_WAYPOINT = 16, # Navigate to waypoint
+                message_waypoint.frame = list -> waypoints[i].frame;
+                message_waypoint.command = list -> waypoints[i].command; // uint16 NAV_WAYPOINT = 16, # Navigate to waypoint
+                message_waypoint.is_current = list -> waypoints[i].is_current;
+                message_waypoint.autocontinue = list -> waypoints[i].autocontinue;
                 message_waypoint.param1 = 0.0; // No. of turns by UAV at wp
                 message_waypoint.param2 = 0.0;
                 message_waypoint.param3 = 0.0;

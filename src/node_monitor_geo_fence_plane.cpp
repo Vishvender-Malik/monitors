@@ -906,7 +906,7 @@ void prediction_geo_fence_plane()
     if(abs(fence_limit_to_consider_in_x) - abs(wp_x) <= 100 || abs(fence_limit_to_consider_in_y) - abs(wp_y) <= 100){
         //ROS_INFO("Entered logic if\n\n");
         ROS_INFO("**************************************************************************************************");
-        if((abs(wp_x) - abs(array_local_position_pose_data[0]) <= 25) || (abs(wp_y) - abs(array_local_position_pose_data[1])) <= 25){
+        if((abs(wp_x) - abs(array_local_position_pose_data[0]) <= 100) || (abs(wp_y) - abs(array_local_position_pose_data[1])) <= 100){
             
             theta_plane = atan2((wp_y - old_wp_y), (wp_x - old_wp_x));
             ROS_INFO("Entered logic inner if, fence about to be breached\n\n");
@@ -927,7 +927,10 @@ void prediction_geo_fence_plane()
             // it's replacing wp instead of adding to the table,
             // if we add, UAV will try to go to that wp next, 
             // or before, depending on where we add new wp in the vector
+            message_waypoint.frame = 3;
             message_waypoint.command = 18; // uint16 NAV_LOITER_TURNS = 18, # Loiter around this waypoint for X turns
+            message_waypoint.is_current = true;
+            message_waypoint.autocontinue = true;
             message_waypoint.param1 = 1.0; // X no of turns
             message_waypoint.param2 = 0.0;
             message_waypoint.param3 = 0.0;
@@ -950,6 +953,7 @@ void prediction_geo_fence_plane()
             //ROS_INFO("Loiter wp x : %f\n""Loiter wp y : %f\n\n", wp_x, wp_y);
             for(int i = 0; i < sizeof(array_waypoints_plane) / sizeof(*array_waypoints_plane); i++){
                 vec_waypoint_table.push_back(array_waypoints_plane[i]);
+                ROS_INFO("parameter command : %d \n", vec_waypoint_table[i].command);
             }
             //ROS_INFO("Outside inner if now\n\n");
             // push updated table to wp message
@@ -967,7 +971,7 @@ void prediction_geo_fence_plane()
                     ROS_ERROR("Service waypoint push call failed\n");
                 }
             }// end of outer if
-
+            /*
             // if loiter point set already
             if(loiter_flag == 1){
                 if((abs(old_wp_x) - abs(array_local_position_pose_data[0]) >= 25) && (abs(old_wp_y) - abs(array_local_position_pose_data[1])) >= 25){
@@ -994,7 +998,7 @@ void prediction_geo_fence_plane()
                     ROS_INFO("Waypoint updation success : %d\n", command_waypoint_set_current.response.success);
                 }// end of inner if
             }// end of outer if
-
+            */
         } // end of inner if 
         loiter_flag = 0;
         /*
