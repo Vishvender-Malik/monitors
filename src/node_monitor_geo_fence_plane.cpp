@@ -970,9 +970,8 @@ void prediction_geo_fence_plane()
 
             // if loiter point set already
             if(loiter_flag == 1){
-                if((abs(wp_x) - abs(array_local_position_pose_data[0]) >= 25) && (abs(wp_y) - abs(array_local_position_pose_data[1])) >= 25){
+                if((abs(old_wp_x) - abs(array_local_position_pose_data[0]) >= 25) && (abs(old_wp_y) - abs(array_local_position_pose_data[1])) >= 25){
                     
-                    loiter_flag = 0;
                     service_flag = 1;
                     
                     abs_diff_x = abs(wp_x) - abs(array_local_position_pose_data[0]);
@@ -986,7 +985,7 @@ void prediction_geo_fence_plane()
                     ROS_INFO("New waypoint index : %d\n", command_waypoint_set_current.request.wp_seq);
                     
                     if(srv_set_current_waypoint.call(command_waypoint_set_current)){
-                        ROS_INFO("Waypoint increase service called successfully\n");
+                        ROS_INFO("Plane out of fence limit again, waypoint increase service called successfully\n");
                     } 
                     else {
                         ROS_INFO("Service call failed\n");
@@ -997,6 +996,7 @@ void prediction_geo_fence_plane()
             }// end of outer if
 
         } // end of inner if 
+        loiter_flag = 0;
         /*
         if(service_flag == 0){
             ROS_INFO("Service NOT called yet.");
